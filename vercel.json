@@ -1,19 +1,13 @@
 {
   "version": 2,
-  "buildCommand": "cd packages/admin-web && npm install && npm run build",
-  "installCommand": "npm install",
+  "installCommand": "npm ci",
+  "buildCommand": "cd packages/admin-web && npm run build",
   "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
   "outputDirectory": "packages/admin-web/dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "functions": {
     "api/index.ts": {
       "runtime": "@vercel/node@3.0.7"
