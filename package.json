@@ -24,6 +24,11 @@
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   },
-  "packageManager": "npm@9.0.0"
+  "packageManager": "npm@9.0.0",
+  "overrides": {
+    "rimraf": "^5.0.5",
+    "glob": "^10.3.10",
+    "npmlog": "^7.0.1"
+  }
 }
 
