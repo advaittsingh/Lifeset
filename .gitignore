@@ -32,5 +32,28 @@ dist-ssr
 build
 out
 
+<<<<<<< HEAD
 # Vercel
+=======
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+>>>>>>> 74e9405 (working admin panel)
 .vercel
