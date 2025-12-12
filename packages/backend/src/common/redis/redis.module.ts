@@ -25,7 +25,7 @@ import Redis from 'ioredis';
           },
           maxRetriesPerRequest: 3,
           enableReadyCheck: true,
-          lazyConnect: false,
+          lazyConnect: true, // Lazy connect to prevent blocking app initialization
         });
 
         redisClient.on('connect', () => {

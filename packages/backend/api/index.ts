@@ -20,12 +20,21 @@ async function createApp(): Promise<express.Application> {
   }
 
   try {
+    console.log('Initializing NestJS application...');
+    console.log('Environment check:', {
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      hasRedisHost: !!process.env.REDIS_HOST,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
+
     const expressApp = express();
     const app = await NestFactory.create(
       AppModule,
       new ExpressAdapter(expressApp),
       {
-        logger: ['error', 'warn'],
+        logger: ['error', 'warn', 'log'],
       },
     );
 
@@ -89,11 +98,18 @@ async function createApp(): Promise<express.Application> {
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
 
+    console.log('Initializing application...');
     await app.init();
+    console.log('Application initialized successfully');
     cachedApp = expressApp;
     return cachedApp;
-  } catch (error) {
-    console.error('Error creating NestJS app:', error);
+  } catch (error: any) {
+    console.error('Error creating NestJS app:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      code: error?.code,
+    });
     throw error;
   }
 }
@@ -105,14 +121,42 @@ export default async function handler(
   try {
     const app = await createApp();
     app(req, res);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to initialize app:', error);
+    
+    // Provide more detailed error information
+    const errorMessage = error?.message || 'Unknown error';
+    const errorStack = error?.stack;
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'development';
+    
+    // Log full error details
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorStack,
+      name: error?.name,
+      code: error?.code,
+    });
+    
+    // Check for common issues
+    let userMessage = 'A server error has occurred';
+    if (errorMessage.includes('DATABASE_URL') || errorMessage.includes('database')) {
+      userMessage = 'Database configuration error. Please check DATABASE_URL environment variable.';
+    } else if (errorMessage.includes('JWT_SECRET') || errorMessage.includes('JWT')) {
+      userMessage = 'Authentication configuration error. Please check JWT_SECRET environment variable.';
+    } else if (errorMessage.includes('Redis') || errorMessage.includes('REDIS')) {
+      userMessage = 'Redis connection error. The application will continue but some features may be limited.';
+    }
+    
     res.status(500).json({
       success: false,
       error: {
         code: 'SERVER_ERROR',
-        message: 'A server error has occurred',
-        details: process.env.NODE_ENV === 'development' ? String(error) : undefined,
+        message: userMessage,
+        details: isDevelopment ? {
+          originalError: errorMessage,
+          stack: errorStack,
+          hint: 'Check Vercel environment variables: DATABASE_URL, JWT_SECRET, REDIS_HOST',
+        } : undefined,
       },
       timestamp: new Date().toISOString(),
     });
