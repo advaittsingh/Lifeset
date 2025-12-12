@@ -79,22 +79,45 @@ export class AuthService {
         throw new InternalServerErrorException('Server configuration error: JWT_REFRESH_SECRET is missing');
       }
 
-      // Find user
-      const user = await this.prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: emailOrMobile },
-            { mobile: emailOrMobile },
-          ],
-        },
-      });
+      // Find user with proper error handling for database issues
+      let user;
+      try {
+        user = await this.prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: emailOrMobile },
+              { mobile: emailOrMobile },
+            ],
+          },
+        });
+      } catch (dbError: any) {
+        this.logger.error(`Database error during user lookup: ${dbError.message}`, dbError.stack);
+        // Check if it's a connection error
+        if (dbError.code === 'P1001' || dbError.message?.includes('connect') || dbError.message?.includes('timeout')) {
+          throw new InternalServerErrorException('Database connection failed. Please try again later.');
+        }
+        throw new InternalServerErrorException('Database error occurred during login');
+      }
 
       if (!user) {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+      // Check if user has a password set
+      if (!user.password) {
+        this.logger.warn(`User ${user.id} does not have a password set`);
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
       // Validate password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      let isPasswordValid: boolean;
+      try {
+        isPasswordValid = await bcrypt.compare(password, user.password);
+      } catch (bcryptError: any) {
+        this.logger.error(`Password comparison error: ${bcryptError.message}`, bcryptError.stack);
+        throw new InternalServerErrorException('Error validating credentials');
+      }
+
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
@@ -108,7 +131,7 @@ export class AuthService {
       let tokens;
       try {
         tokens = await this.generateTokens(user);
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`Failed to generate tokens: ${error.message}`, error.stack);
         throw new InternalServerErrorException('Failed to generate authentication tokens');
       }
@@ -116,7 +139,7 @@ export class AuthService {
       // Store session (non-blocking - don't fail login if session creation fails)
       try {
         await this.createSession(user.id, tokens.accessToken, tokens.refreshToken);
-      } catch (error) {
+      } catch (error: any) {
         this.logger.warn(`Failed to create session for user ${user.id}: ${error.message}. Login will continue.`);
         // Continue with login even if session creation fails
       }
@@ -130,14 +153,15 @@ export class AuthService {
         },
         ...tokens,
       };
-    } catch (error) {
+    } catch (error: any) {
       // Re-throw known exceptions
       if (error instanceof UnauthorizedException || error instanceof InternalServerErrorException) {
         throw error;
       }
       
-      // Log unexpected errors
+      // Log unexpected errors with full details
       this.logger.error(`Unexpected error during login: ${error.message}`, error.stack);
+      this.logger.error(`Error name: ${error.name}, Error code: ${error.code}`);
       throw new InternalServerErrorException('An unexpected error occurred during login');
     }
   }
