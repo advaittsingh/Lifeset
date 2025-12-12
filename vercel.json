@@ -1,6 +1,13 @@
 {
-  "_comment": "This file is deprecated. Backend and Admin Panel are now deployed as separate Vercel projects.",
-  "_comment2": "Backend: Use backend-standalone/vercel.json",
-  "_comment3": "Admin Panel: Use admin-web-standalone/vercel.json",
-  "_comment4": "See VERCEL_DEPLOYMENT_GUIDE.md for deployment instructions"
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

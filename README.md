@@ -1,79 +1,48 @@
-# LifeSet Platform
+# LifeSet Admin Web
 
-A comprehensive educational and career management platform connecting students, educational institutions, recruiters, and administrators.
+Standalone admin panel web application for the LifeSet Platform.
 
-## Architecture
+## Setup
 
-This repository contains three standalone projects:
-
-- **backend-standalone/** - NestJS API server with Prisma ORM, PostgreSQL, Redis, and BullMQ
-- **admin-web-standalone/** - React + Vite admin panel with Tailwind CSS and Shadcn/UI
-- **mobile-app-standalone/** - React Native + Expo mobile application
-
-Each project is completely independent and can be developed, deployed, and maintained separately.
-
-## Prerequisites
-
-- Node.js >= 20.0.0
-- npm >= 10.0.0
-- PostgreSQL >= 15
-- Redis >= 7
-- Docker (optional, for containerized deployment)
-
-## Getting Started
-
-### Backend
-
+1. Install dependencies:
 ```bash
-cd backend-standalone
 npm install
+```
+
+2. Set up environment variables:
+```bash
+# Create .env file with your backend API URL
+echo "VITE_API_URL=https://lifeset-backend.vercel.app/api/v1" > .env
+```
+
+3. Start the development server:
+```bash
 npm run dev
 ```
 
-See [backend-standalone/README.md](./backend-standalone/README.md) for detailed setup instructions.
+## Available Scripts
 
-### Admin Web
-
-```bash
-cd admin-web-standalone
-npm install
-npm run dev
-```
-
-See [admin-web-standalone/README.md](./admin-web-standalone/README.md) for detailed setup instructions.
-
-### Mobile App
-
-```bash
-cd mobile-app-standalone
-npm install
-npm start
-```
-
-See [mobile-app-standalone/README.md](./mobile-app-standalone/README.md) for detailed setup instructions.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run linter
 
 ## Project Structure
 
-```
-.
-├── backend-standalone/     # Standalone NestJS backend
-├── admin-web-standalone/   # Standalone React admin panel
-├── mobile-app-standalone/  # Standalone React Native app
-├── Documentation/         # Project documentation
-└── README.md
-```
+- `src/` - Source code
+  - `components/` - React components
+  - `pages/` - Page components
+  - `services/` - API services
+  - `store/` - State management
 
-## Migration from Monorepo
+## Deployment
 
-If you're migrating from the previous monorepo setup, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for details.
+This project is deployed on Vercel. The backend API URL is configured via environment variables.
 
-## Documentation
+**Production URL:** https://lifeset-admin-nymrcg900-curvvtech.vercel.app
 
-- [Migration Guide](./MIGRATION_GUIDE.md) - Guide for migrating from monorepo
-- [Standalone Projects Summary](./STANDALONE_PROJECTS_SUMMARY.md) - Quick reference
-- [Verification Checklist](./VERIFICATION_CHECKLIST.md) - Verification status
-- [Documentation](./Documentation/) - Additional project documentation
+**Backend API:** https://lifeset-backend.vercel.app/api/v1
 
-## License
+## Notes
 
-Proprietary
+This is a standalone version of the admin web application, previously part of a monorepo.
