@@ -31,7 +31,10 @@ import { RedisModule } from './common/redis/redis.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      // In production/Vercel, env vars come from process.env, .env file is for local dev
+      envFilePath: process.env.NODE_ENV === 'production' ? undefined : '.env',
+      // Allow environment variables from process.env (Vercel provides these)
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
     }),
     PrismaModule,
     RedisModule,
