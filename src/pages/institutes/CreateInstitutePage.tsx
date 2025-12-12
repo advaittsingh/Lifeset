@@ -42,11 +42,39 @@ export default function CreateInstitutePage() {
       console.error('Error creating institute:', error);
       console.error('Error response:', error?.response?.data);
       console.error('Request data sent:', error?.config?.data);
-      const errorMessage = error?.response?.data?.message || 
-                          error?.response?.data?.error || 
-                          error?.message || 
-                          'Failed to create institute. Please check the console for details.';
-      showToast(errorMessage, 'error');
+      
+      // Extract error message properly - handle objects
+      let errorMessage = 'Failed to create institute';
+      
+      try {
+        if (error?.response?.data) {
+          const errorData = error.response.data;
+          
+          // Handle different error response formats
+          if (typeof errorData === 'string') {
+            errorMessage = errorData;
+          } else if (errorData?.message) {
+            errorMessage = String(errorData.message);
+          } else if (errorData?.error) {
+            errorMessage = String(errorData.error);
+          } else if (errorData?.code && errorData?.message) {
+            errorMessage = `${String(errorData.code)}: ${String(errorData.message)}`;
+          } else if (Array.isArray(errorData)) {
+            errorMessage = errorData.map((e: any) => String(e?.message || e)).join(', ');
+          } else {
+            // Try to extract any meaningful message from the object
+            const message = errorData?.message || errorData?.error || errorData?.detail;
+            errorMessage = message ? String(message) : 'Server error occurred. Please check console for details.';
+          }
+        } else if (error?.message) {
+          errorMessage = String(error.message);
+        }
+      } catch (e) {
+        errorMessage = 'An unexpected error occurred';
+      }
+      
+      // Ensure we always pass a string
+      showToast(String(errorMessage), 'error');
     },
   });
 
@@ -62,6 +90,12 @@ export default function CreateInstitutePage() {
     }
     if (!formData.facultyHeadEmail.trim()) {
       showToast('Please enter faculty head email', 'error');
+      return;
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.facultyHeadEmail.trim())) {
+      showToast('Please enter a valid email address', 'error');
       return;
     }
     if (!formData.facultyHeadContact.trim()) {
