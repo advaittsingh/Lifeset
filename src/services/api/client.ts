@@ -60,6 +60,16 @@ apiClient.interceptors.response.use(
         baseURL: apiClient.defaults.baseURL,
         url: error.config?.url,
       });
+    } else if (error.response) {
+      // Log server errors with full details
+      console.error('API Error:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        url: error.config?.url,
+        method: error.config?.method,
+        data: error.response.data,
+        requestData: error.config?.data,
+      });
     }
     
     if (error.response?.status === 401) {

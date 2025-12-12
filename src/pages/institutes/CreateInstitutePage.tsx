@@ -40,7 +40,12 @@ export default function CreateInstitutePage() {
     },
     onError: (error: any) => {
       console.error('Error creating institute:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create institute';
+      console.error('Error response:', error?.response?.data);
+      console.error('Request data sent:', error?.config?.data);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.response?.data?.error || 
+                          error?.message || 
+                          'Failed to create institute. Please check the console for details.';
       showToast(errorMessage, 'error');
     },
   });
@@ -65,22 +70,28 @@ export default function CreateInstitutePage() {
     }
 
     // Prepare data for API - map form fields to backend expected format
-    const apiData = {
-      name: formData.name,
-      email: formData.facultyHeadEmail,
-      phone: formData.facultyHeadContact,
-      city: formData.city || undefined,
-      state: formData.state || undefined,
-      pincode: formData.pincode || undefined,
-      district: formData.district || undefined,
-      address: formData.address || undefined,
-      // Additional fields that backend might need
-      facultyHeadName: formData.facultyHeadName,
-      facultyHeadEmail: formData.facultyHeadEmail,
-      facultyHeadContact: formData.facultyHeadContact,
+    // Remove undefined values to avoid sending them
+    const apiData: any = {
+      name: formData.name.trim(),
+      email: formData.facultyHeadEmail.trim(),
+      phone: formData.facultyHeadContact.trim(),
       isActive: formData.facultyHeadStatus === 'Active',
     };
 
+    // Add optional fields only if they have values
+    if (formData.city?.trim()) apiData.city = formData.city.trim();
+    if (formData.state?.trim()) apiData.state = formData.state.trim();
+    if (formData.pincode?.trim()) apiData.pincode = formData.pincode.trim();
+    if (formData.district?.trim()) apiData.district = formData.district.trim();
+    if (formData.address?.trim()) apiData.address = formData.address.trim();
+    
+    // Add faculty head details if backend expects them
+    if (formData.facultyHeadName?.trim()) apiData.facultyHeadName = formData.facultyHeadName.trim();
+    
+    // Add type field (required by backend based on Institute interface)
+    apiData.type = 'College'; // Default type, adjust if needed
+
+    console.log('Sending institute data:', apiData);
     createMutation.mutate(apiData);
   };
 
