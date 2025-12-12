@@ -42,6 +42,7 @@
     "@types/uuid": "^10.0.0",
     "@vercel/node": "^3.0.7",
     "aws-sdk": "^2.1499.0",
+    "axios": "^1.13.2",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.1.0",
     "class-transformer": "^0.5.1",
