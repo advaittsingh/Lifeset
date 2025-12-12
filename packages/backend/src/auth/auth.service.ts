@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +8,8 @@ import { UserType } from '@lifeset/shared';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -62,42 +64,82 @@ export class AuthService {
   }
 
   async login(emailOrMobile: string, password: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: emailOrMobile },
-          { mobile: emailOrMobile },
-        ],
-      },
-    });
+    try {
+      // Validate JWT secrets are configured
+      const jwtSecret = this.configService.get<string>('JWT_SECRET');
+      const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+      
+      if (!jwtSecret) {
+        this.logger.error('JWT_SECRET is not configured');
+        throw new InternalServerErrorException('Server configuration error: JWT_SECRET is missing');
+      }
+      
+      if (!jwtRefreshSecret) {
+        this.logger.error('JWT_REFRESH_SECRET is not configured');
+        throw new InternalServerErrorException('Server configuration error: JWT_REFRESH_SECRET is missing');
+      }
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      // Find user
+      const user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: emailOrMobile },
+            { mobile: emailOrMobile },
+          ],
+        },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      // Validate password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      // Check if user is active
+      if (!user.isActive) {
+        throw new UnauthorizedException('Account is inactive');
+      }
+
+      // Generate tokens
+      let tokens;
+      try {
+        tokens = await this.generateTokens(user);
+      } catch (error) {
+        this.logger.error(`Failed to generate tokens: ${error.message}`, error.stack);
+        throw new InternalServerErrorException('Failed to generate authentication tokens');
+      }
+
+      // Store session (non-blocking - don't fail login if session creation fails)
+      try {
+        await this.createSession(user.id, tokens.accessToken, tokens.refreshToken);
+      } catch (error) {
+        this.logger.warn(`Failed to create session for user ${user.id}: ${error.message}. Login will continue.`);
+        // Continue with login even if session creation fails
+      }
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          mobile: user.mobile,
+          userType: user.userType,
+        },
+        ...tokens,
+      };
+    } catch (error) {
+      // Re-throw known exceptions
+      if (error instanceof UnauthorizedException || error instanceof InternalServerErrorException) {
+        throw error;
+      }
+      
+      // Log unexpected errors
+      this.logger.error(`Unexpected error during login: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('An unexpected error occurred during login');
     }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is inactive');
-    }
-
-    const tokens = await this.generateTokens(user);
-
-    // Store session
-    await this.createSession(user.id, tokens.accessToken, tokens.refreshToken);
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        mobile: user.mobile,
-        userType: user.userType,
-      },
-      ...tokens,
-    };
   }
 
   async generateOtp(emailOrMobile: string) {
@@ -128,20 +170,36 @@ export class AuthService {
   }
 
   async generateTokens(user: any) {
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      mobile: user.mobile,
-      userType: user.userType,
-    };
+    try {
+      const payload = {
+        sub: user.id,
+        email: user.email,
+        mobile: user.mobile,
+        userType: user.userType,
+      };
 
-    const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
-    });
+      const jwtSecret = this.configService.get<string>('JWT_SECRET');
+      const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
 
-    return { accessToken, refreshToken };
+      if (!jwtSecret) {
+        throw new Error('JWT_SECRET is not configured');
+      }
+
+      if (!jwtRefreshSecret) {
+        throw new Error('JWT_REFRESH_SECRET is not configured');
+      }
+
+      const accessToken = this.jwtService.sign(payload);
+      const refreshToken = this.jwtService.sign(payload, {
+        secret: jwtRefreshSecret,
+        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
+      });
+
+      return { accessToken, refreshToken };
+    } catch (error) {
+      this.logger.error(`Token generation failed: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async refreshToken(refreshToken: string) {
@@ -177,17 +235,22 @@ export class AuthService {
   }
 
   async createSession(userId: string, token: string, refreshToken: string) {
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+    try {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    await this.prisma.session.create({
-      data: {
-        userId,
-        token,
-        refreshToken,
-        expiresAt,
-      },
-    });
+      await this.prisma.session.create({
+        data: {
+          userId,
+          token,
+          refreshToken,
+          expiresAt,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to create session for user ${userId}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async validateUser(userId: string) {
