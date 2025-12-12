@@ -296,7 +296,7 @@ export default function InstitutesPage() {
                 </div>
               </div>
             </div>
-            <DialogFooter className="mt-6">
+            <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
               <Button
                 className="bg-yellow-500 hover:bg-yellow-600 text-white"
@@ -441,7 +441,7 @@ export default function InstitutesPage() {
                 </div>
               </div>
             </div>
-            <DialogFooter className="mt-6">
+            <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
               <Button
                 className="bg-yellow-500 hover:bg-yellow-600 text-white"
