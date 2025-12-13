@@ -8,7 +8,7 @@ import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Select } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { Plus, Edit, Trash2, Loader2, Building2, Users, BookOpen, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, Building2, Users, BookOpen, Eye, MapPin, Mail, Phone, Search, CheckCircle2, XCircle } from 'lucide-react';
 import { institutesApi } from '../../services/api/institutes';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -62,16 +62,22 @@ export default function InstitutesPage() {
     },
   });
 
+  const totalInstitutes = institutes.length;
+  const activeInstitutes = institutes.filter((i: any) => i.isActive !== false).length;
+  const totalStudents = institutes.reduce((sum: number, i: any) => sum + (i._count?.students || 0), 0);
+  const totalCourses = institutes.reduce((sum: number, i: any) => sum + (i._count?.courses || 0), 0);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Institutes</h1>
             <p className="text-slate-600 mt-1">Manage institutes and colleges</p>
           </div>
           <Button
-            className="bg-gradient-to-r from-blue-600 to-indigo-600"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
             onClick={() => navigate('/institutes/create')}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -79,19 +85,71 @@ export default function InstitutesPage() {
           </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>All Institutes</CardTitle>
-              <Input
-                placeholder="Search institutes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
-              />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-blue-100">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600">Total Institutes</p>
+                  <p className="text-2xl font-bold text-blue-900 mt-1">{totalInstitutes}</p>
+                </div>
+                <Building2 className="h-10 w-10 text-blue-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-emerald-100">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-emerald-600">Active</p>
+                  <p className="text-2xl font-bold text-emerald-900 mt-1">{activeInstitutes}</p>
+                </div>
+                <CheckCircle2 className="h-10 w-10 text-emerald-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md bg-gradient-to-br from-purple-50 to-purple-100">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-600">Total Students</p>
+                  <p className="text-2xl font-bold text-purple-900 mt-1">{totalStudents}</p>
+                </div>
+                <Users className="h-10 w-10 text-purple-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md bg-gradient-to-br from-orange-50 to-orange-100">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-600">Total Courses</p>
+                  <p className="text-2xl font-bold text-orange-900 mt-1">{totalCourses}</p>
+                </div>
+                <BookOpen className="h-10 w-10 text-orange-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search and Filters */}
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle className="text-xl">All Institutes</CardTitle>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search institutes by name, city, or state..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-80 pl-10"
+                />
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -112,65 +170,138 @@ export default function InstitutesPage() {
                 <p className="text-sm text-slate-500">Create your first institute to get started</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {institutes.map((institute: any) => (
-                  <Card key={institute.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                    <CardContent className="pt-6">
+                  <Card 
+                    key={institute.id} 
+                    className="border-0 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group"
+                  >
+                    <div className="h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+                    <CardContent className="pt-6 pb-4">
+                      {/* Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Building2 className="h-5 w-5 text-blue-600" />
-                            <h3 className="font-semibold text-lg">{institute.name}</h3>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
+                              <Building2 className="h-5 w-5 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-lg text-slate-900 truncate">{institute.name}</h3>
+                              {institute.type && (
+                                <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                                  {institute.type}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-sm text-slate-600 mb-1">{institute.city}, {institute.state}</p>
-                          <p className="text-xs text-slate-500">{institute.type}</p>
+                          
+                          {/* Location */}
+                          <div className="flex items-center gap-2 text-sm text-slate-600 mb-3">
+                            <MapPin className="h-4 w-4 text-slate-400" />
+                            <span className="truncate">
+                              {institute.city && institute.state 
+                                ? `${institute.city}, ${institute.state}`
+                                : institute.city || institute.state || 'Location not specified'}
+                            </span>
+                          </div>
+
+                          {/* Contact Info */}
+                          {(institute.email || institute.phone) && (
+                            <div className="space-y-1 mb-3 text-xs text-slate-500">
+                              {institute.email && (
+                                <div className="flex items-center gap-2">
+                                  <Mail className="h-3 w-3" />
+                                  <span className="truncate">{institute.email}</span>
+                                </div>
+                              )}
+                              {institute.phone && (
+                                <div className="flex items-center gap-2">
+                                  <Phone className="h-3 w-3" />
+                                  <span>{institute.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Status Badge */}
+                          <div className="mb-4">
+                            {institute.isActive !== false ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+                                <XCircle className="h-3 w-3" />
+                                Inactive
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-slate-600 mb-4">
-                        <div className="flex items-center gap-1">
-                          <Users className="h-4 w-4" />
-                          <span>{institute._count?.students || 0} students</span>
+
+                      {/* Stats */}
+                      <div className="flex items-center gap-4 mb-4 p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-2 flex-1">
+                          <div className="p-1.5 rounded-md bg-blue-100">
+                            <Users className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Students</p>
+                            <p className="text-sm font-semibold text-slate-900">{institute._count?.students || 0}</p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <BookOpen className="h-4 w-4" />
-                          <span>{institute._count?.courses || 0} courses</span>
+                        <div className="w-px h-8 bg-slate-300"></div>
+                        <div className="flex items-center gap-2 flex-1">
+                          <div className="p-1.5 rounded-md bg-purple-100">
+                            <BookOpen className="h-4 w-4 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Courses</p>
+                            <p className="text-sm font-semibold text-slate-900">{institute._count?.courses || 0}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
+                          className="flex-1 min-w-[100px] hover:bg-blue-50 hover:border-blue-300"
                           onClick={() => navigate(`/institutes/${institute.id}/dashboard`)}
                         >
-                          <Eye className="h-4 w-4 mr-1" />
+                          <Eye className="h-3.5 w-3.5 mr-1.5" />
                           Dashboard
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
+                          className="flex-1 min-w-[100px] hover:bg-purple-50 hover:border-purple-300"
                           onClick={() => navigate(`/institutes/${institute.id}/courses`)}
                         >
-                          <BookOpen className="h-4 w-4 mr-1" />
+                          <BookOpen className="h-3.5 w-3.5 mr-1.5" />
                           Courses
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
+                          className="hover:bg-indigo-50 hover:border-indigo-300"
                           onClick={() => navigate(`/institutes/${institute.id}/landing`)}
                         >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Landing
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
+                          className="hover:bg-amber-50 hover:border-amber-300"
                           onClick={() => {
                             setSelectedItem(institute);
                             setFormData({
                               facultyHeadName: institute.facultyHeadName || '',
                               facultyHeadEmail: institute.email || institute.facultyHeadEmail || '',
                               facultyHeadContact: institute.phone || institute.facultyHeadContact || '',
-                              facultyHeadStatus: institute.isActive ? 'Active' : 'Inactive',
+                              facultyHeadStatus: institute.isActive !== false ? 'Active' : 'Inactive',
                               name: institute.name || '',
                               pincode: institute.pincode || '',
                               district: institute.district || '',
@@ -181,7 +312,7 @@ export default function InstitutesPage() {
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </CardContent>
