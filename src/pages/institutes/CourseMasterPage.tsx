@@ -6,11 +6,13 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { Plus, Edit, Trash2, Loader2, BookOpen } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, BookOpen, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { institutesApi } from '../../services/api/institutes';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function CourseMasterPage() {
+  const navigate = useNavigate();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -99,6 +101,14 @@ export default function CourseMasterPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/institutes/course-master/${cat.id}`)}
+                            className="hover:bg-blue-50 hover:border-blue-300"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"

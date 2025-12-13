@@ -36,6 +36,7 @@ import GovtVacanciesPage from './pages/cms/GovtVacanciesPage';
 
 // Institute Pages
 import CourseMasterPage from './pages/institutes/CourseMasterPage';
+import CategoryDetailPage from './pages/institutes/CategoryDetailPage';
 import InstitutesPage from './pages/institutes/InstitutesPage';
 import CreateInstitutePage from './pages/institutes/CreateInstitutePage';
 import InstituteDashboardPage from './pages/institutes/InstituteDashboardPage';
@@ -409,6 +410,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <CourseMasterPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/institutes/course-master/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CategoryDetailPage />
             </ProtectedRoute>
           }
         />
