@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Select } from '../../components/ui/select';
-import { ArrowLeft, Save, Loader2, BookOpen, GraduationCap, Award, Layers } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, BookOpen, GraduationCap, Award, Layers, Check } from 'lucide-react';
 import { institutesApi } from '../../services/api/institutes';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -72,17 +72,34 @@ export default function CreateCoursePage() {
     },
     onError: (error: any) => {
       console.error('Error creating course:', error);
+      console.error('Error response:', error?.response?.data);
+      console.error('Error response (full):', JSON.stringify(error?.response?.data, null, 2));
+      console.error('Error status:', error?.response?.status);
+      console.error('Request URL:', error?.config?.url);
+      console.error('Request data sent:', error?.config?.data);
+      console.error('Full error object:', JSON.stringify(error?.response, null, 2));
+      
       let errorMessage = 'Failed to create course';
       
-      if (error?.response?.data) {
-        const errorData = error.response.data;
-        if (typeof errorData === 'string') {
-          errorMessage = errorData;
-        } else if (errorData?.message) {
-          errorMessage = String(errorData.message);
-        } else if (errorData?.error) {
-          errorMessage = String(errorData.error);
+      try {
+        if (error?.response?.data) {
+          const errorData = error.response.data;
+          if (typeof errorData === 'string') {
+            errorMessage = errorData;
+          } else if (errorData?.message) {
+            errorMessage = String(errorData.message);
+          } else if (errorData?.error) {
+            errorMessage = String(errorData.error);
+          } else if (errorData?.code && errorData?.message) {
+            errorMessage = `${String(errorData.code)}: ${String(errorData.message)}`;
+          } else {
+            errorMessage = 'Server error occurred. Please check console for details.';
+          }
+        } else if (error?.message) {
+          errorMessage = String(error.message);
         }
+      } catch (e) {
+        errorMessage = 'An unexpected error occurred';
       }
       
       showToast(String(errorMessage), 'error');
@@ -106,16 +123,20 @@ export default function CreateCoursePage() {
       categoryId: formData.categoryId,
     };
 
+    // Add optional fields only if they have values
     if (formData.description?.trim()) {
       apiData.description = formData.description.trim();
     }
-    if (formData.awardedId) {
+    // Only include awardedId if it's selected (not empty string)
+    if (formData.awardedId && formData.awardedId.trim()) {
       apiData.awardedId = formData.awardedId;
     }
-    if (formData.specialisationId) {
+    // Only include specialisationId if it's selected (not empty string)
+    if (formData.specialisationId && formData.specialisationId.trim()) {
       apiData.specialisationId = formData.specialisationId;
     }
 
+    console.log('Sending course data:', JSON.stringify(apiData, null, 2));
     createMutation.mutate(apiData);
   };
 
@@ -146,12 +167,12 @@ export default function CreateCoursePage() {
             {createMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Creating...
+                <span>Creating...</span>
               </>
             ) : (
               <>
-                <Save className="h-4 w-4 mr-2" />
-                Create Course
+                <Check className="h-4 w-4 mr-2" />
+                <span>Create Course</span>
               </>
             )}
           </Button>
