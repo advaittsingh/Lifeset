@@ -34,10 +34,22 @@ export default function InstitutesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['institutes', searchTerm],
     queryFn: () => institutesApi.getInstitutes({ search: searchTerm || undefined }),
+    retry: 1,
   });
+
+  // Log errors for debugging
+  React.useEffect(() => {
+    if (error) {
+      console.error('Error fetching institutes:', error);
+      const axiosError = error as any;
+      if (axiosError?.response?.status === 404) {
+        console.warn('GET /admin/institutes returned 404 - endpoint might not be implemented yet');
+      }
+    }
+  }, [error]);
 
   const institutes = Array.isArray(data) ? data : (data?.data || []);
 
@@ -83,6 +95,21 @@ export default function InstitutesPage() {
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <p className="text-red-600 mb-2">Error loading institutes</p>
+                <p className="text-sm text-slate-600">
+                  {(error as any)?.response?.status === 404 
+                    ? 'Endpoint not found. Please check if the backend GET /admin/institutes is implemented.'
+                    : 'Please check the console for details.'}
+                </p>
+              </div>
+            ) : institutes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Building2 className="h-12 w-12 text-slate-400 mb-4" />
+                <p className="text-slate-600 mb-2">No institutes found</p>
+                <p className="text-sm text-slate-500">Create your first institute to get started</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
