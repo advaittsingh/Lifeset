@@ -34,43 +34,15 @@ export default function WallCategoryDetailPage() {
   const allCategories = categoriesData?.data || [];
   const selectedCategory = allCategories.find((cat: any) => cat.id === id);
 
-  // Fetch sub-categories for this category
+  // Fetch sub-categories for this category (backend now filters correctly)
   const { data: subCategoriesData, isLoading: isLoadingSubCategories } = useQuery({
     queryKey: ['wall-categories', 'sub-categories', id],
     queryFn: async () => {
       if (!id) return { data: [] };
       try {
-        // Try to fetch with parentId parameter first
-        let data = await postsApi.getWallCategories({ parentId: id });
-        let categories = Array.isArray(data) ? data : (data?.data || []);
-        
-        // If API doesn't filter properly, fetch all categories and filter client-side
-        if (categories.length === 0 || !categories.some((cat: any) => {
-          const catParentId = cat.parentCategoryId || cat.metadata?.parentCategoryId || cat.parentCategory?.id;
-          return String(catParentId) === String(id);
-        })) {
-          // Fallback: fetch all and filter client-side
-          const allData = await postsApi.getWallCategories();
-          const allCategories = Array.isArray(allData) ? allData : (allData?.data || []);
-          categories = allCategories;
-        }
-        
-        // Client-side filtering to ensure we only get sub-categories for this parent
-        const filtered = categories.filter((cat: any) => {
-          const catParentId = cat.parentCategoryId || cat.metadata?.parentCategoryId || cat.parentCategory?.id;
-          
-          // Sub-category must have a parentCategoryId that matches this category's id
-          const isSubCategory = catParentId !== null && 
-                               catParentId !== undefined && 
-                               catParentId !== '' && 
-                               catParentId !== false &&
-                               catParentId !== 0 &&
-                               String(catParentId) === String(id);
-          
-          return isSubCategory;
-        });
-        
-        return { data: filtered };
+        // Backend returns only sub-categories for this parent (WHERE parentCategoryId = id)
+        const data = await postsApi.getWallCategories({ parentId: id });
+        return Array.isArray(data) ? { data } : data;
       } catch (error: any) {
         console.error('Error fetching sub-categories:', error);
         return { data: [] };

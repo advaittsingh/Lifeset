@@ -23,32 +23,14 @@ export default function WallCategoriesPage() {
     status: 'active' 
   });
 
-  // Fetch parent categories from API (default - only parents)
+  // Fetch parent categories from API (backend now filters correctly)
   const { data: categoriesData, isLoading, error: categoriesError, refetch: refetchCategories } = useQuery({
     queryKey: ['wall-categories', 'parents', searchTerm],
     queryFn: async () => {
       try {
-        // Try to get only parent categories first
-        let data = await postsApi.getWallCategories();
-        let allCategories = Array.isArray(data) ? data : (data?.data || []);
-        
-        // If API doesn't filter properly, fetch all and filter client-side
-        // Check if we got sub-categories mixed in
-        const hasSubCategories = allCategories.some((cat: any) => {
-          const parentId = cat.parentCategoryId || cat.metadata?.parentCategoryId || cat.parentCategory?.id;
-          return parentId !== null && parentId !== undefined && parentId !== '';
-        });
-        
-        // If sub-categories are present, filter them out
-        if (hasSubCategories) {
-          allCategories = allCategories.filter((cat: any) => {
-            const parentId = cat.parentCategoryId || cat.metadata?.parentCategoryId || cat.parentCategory?.id;
-            // Parent categories have null/undefined/empty parentCategoryId
-            return parentId === null || parentId === undefined || parentId === '' || parentId === false || parentId === 0;
-          });
-        }
-        
-        return { data: allCategories };
+        // Backend returns only parent categories by default (parentCategoryId IS NULL)
+        const data = await postsApi.getWallCategories();
+        return Array.isArray(data) ? { data } : data;
       } catch (error: any) {
         console.error('Error fetching wall categories:', error);
         if (error?.response) {
@@ -56,7 +38,6 @@ export default function WallCategoriesPage() {
             status: error.response.status,
             statusText: error.response.statusText,
             data: error.response.data,
-            headers: error.response.headers
           });
         }
         throw error;
