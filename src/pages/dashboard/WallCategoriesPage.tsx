@@ -446,17 +446,23 @@ export default function WallCategoriesPage() {
                       <div className="flex-1 text-left">
                         <p className="font-semibold text-red-900 mb-1">Failed to load categories</p>
                         <p className="text-sm text-red-700 mb-3">
-                          {(categoriesError as any)?.response?.data?.message || 
-                           (categoriesError as any)?.message || 
-                           'The server returned an error. Please check the backend logs.'}
+                          {(() => {
+                            const error = categoriesError as any;
+                            const message = error?.response?.data?.message || error?.message;
+                            return typeof message === 'string' ? message : 'The server returned an error. Please check the backend logs.';
+                          })()}
                         </p>
                         {(categoriesError as any)?.response?.status === 500 && (
-                          <p className="text-xs text-red-600 mb-3">
-                            Status: 500 Internal Server Error
+                          <div className="text-xs text-red-600 mb-3">
+                            <p>Status: 500 Internal Server Error</p>
                             {(categoriesError as any)?.response?.data?.error && (
-                              <span className="block mt-1">Error: {(categoriesError as any).response.data.error}</span>
+                              <p className="mt-1">
+                                Error: {typeof (categoriesError as any).response.data.error === 'string' 
+                                  ? (categoriesError as any).response.data.error 
+                                  : JSON.stringify((categoriesError as any).response.data.error)}
+                              </p>
                             )}
-                          </p>
+                          </div>
                         )}
                         <Button
                           variant="outline"
