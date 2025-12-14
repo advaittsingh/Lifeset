@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { FileText, ArrowLeft, Plus, Search, Loader2, Tag, ChevronRight, AlertCircle, RefreshCw } from 'lucide-react';
+import { FileText, ArrowLeft, Plus, Search, Loader2, Tag, ChevronRight, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
 import { postsApi } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -74,6 +74,37 @@ export default function WallCategoriesPage() {
     onError: () => showToast('Failed to create category', 'error'),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => postsApi.deleteWallCategory(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
+      showToast('Category deleted successfully', 'success');
+    },
+    onError: () => showToast('Failed to delete category', 'error'),
+  });
+
+  const handleDelete = (category: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation when clicking delete
+    const hasSubCategories = (category.subCategoryCount || 0) > 0;
+    const hasPosts = (category.postCount || 0) > 0;
+    
+    let message = `Are you sure you want to delete "${category.name}"?`;
+    if (hasSubCategories || hasPosts) {
+      message += '\n\n';
+      if (hasSubCategories) {
+        message += `⚠️ This category has ${category.subCategoryCount} sub-categor${category.subCategoryCount === 1 ? 'y' : 'ies'}. `;
+      }
+      if (hasPosts) {
+        message += `⚠️ This category has ${category.postCount} post${category.postCount === 1 ? '' : 's'}. `;
+      }
+      message += '\n\nDeleting this category may affect associated content.';
+    }
+    
+    if (window.confirm(message)) {
+      deleteMutation.mutate(category.id);
+    }
+  };
 
   const handleCreate = () => {
     if (!formData.name.trim()) {
@@ -252,35 +283,49 @@ export default function WallCategoriesPage() {
                 {filteredCategories.map((category: any) => (
                   <div
                     key={category.id}
-                    onClick={() => handleCategoryClick(category)}
-                    className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-blue-300 transition-colors cursor-pointer"
+                    className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-blue-300 transition-colors"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
-                      <Tag className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-bold text-slate-900">{category.name}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          category.isActive
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {category.isActive ? 'Active' : 'Inactive'}
-                        </span>
+                    <div
+                      onClick={() => handleCategoryClick(category)}
+                      className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                        <Tag className="h-6 w-6 text-white" />
                       </div>
-                      <p className="text-sm text-slate-600 mt-1">{category.description || 'No description'}</p>
-                      {category.metadata?.categoryFor && (
-                        <p className="text-xs text-slate-500 mt-1">For: {category.metadata.categoryFor}</p>
-                      )}
-                      <div className="flex items-center gap-4 mt-1">
-                        <p className="text-xs text-slate-500">{category.postCount || 0} posts</p>
-                        {category.subCategoryCount !== undefined && (
-                          <p className="text-xs text-slate-500">{category.subCategoryCount || 0} sub-categories</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-bold text-slate-900">{category.name}</h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            category.isActive
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {category.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1">{category.description || 'No description'}</p>
+                        {category.metadata?.categoryFor && (
+                          <p className="text-xs text-slate-500 mt-1">For: {category.metadata.categoryFor}</p>
                         )}
+                        <div className="flex items-center gap-4 mt-1">
+                          <p className="text-xs text-slate-500">{category.postCount || 0} posts</p>
+                          {category.subCategoryCount !== undefined && (
+                            <p className="text-xs text-slate-500">{category.subCategoryCount || 0} sub-categories</p>
+                          )}
+                        </div>
                       </div>
+                      <ChevronRight className="h-5 w-5 text-slate-400" />
                     </div>
-                    <ChevronRight className="h-5 w-5 text-slate-400" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleDelete(category, e)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={deleteMutation.isPending}
+                      title="Delete category"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>

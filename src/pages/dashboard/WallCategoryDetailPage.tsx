@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { ArrowLeft, Plus, Loader2, Tag } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, Tag, Trash2 } from 'lucide-react';
 import { postsApi } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -41,7 +41,31 @@ export default function WallCategoryDetailPage() {
       if (!id) return { data: [] };
       try {
         const data = await postsApi.getWallCategories({ parentId: id });
-        return Array.isArray(data) ? { data } : data;
+        const categories = Array.isArray(data) ? data : (data?.data || []);
+        
+        console.log('Fetched categories for parentId:', id, categories);
+        
+        // Client-side filtering to ensure we only get sub-categories for this parent
+        // Check parentCategoryId at root level, metadata, or parentCategory.id
+        const filtered = categories.filter((cat: any) => {
+          const catParentId = cat.parentCategoryId !== undefined ? cat.parentCategoryId : 
+                             (cat.metadata?.parentCategoryId !== undefined ? cat.metadata.parentCategoryId : 
+                             (cat.parentCategory?.id !== undefined ? cat.parentCategory.id : null));
+          
+          // Also check for null/undefined/empty string - these should be excluded
+          const isSubCategory = catParentId !== null && 
+                               catParentId !== undefined && 
+                               catParentId !== '' && 
+                               String(catParentId) === String(id);
+          
+          console.log('Category:', cat.name, 'parentCategoryId:', catParentId, 'matches:', isSubCategory);
+          
+          return isSubCategory;
+        });
+        
+        console.log('Filtered sub-categories:', filtered);
+        
+        return { data: filtered };
       } catch (error: any) {
         console.error('Error fetching sub-categories:', error);
         return { data: [] };
@@ -75,6 +99,35 @@ export default function WallCategoryDetailPage() {
       showToast('Failed to create sub-category', 'error');
     },
   });
+
+  const deleteSubCategoryMutation = useMutation({
+    mutationFn: (subCategoryId: string) => postsApi.deleteWallCategory(subCategoryId),
+    onSuccess: async () => {
+      showToast('Sub-category deleted successfully', 'success');
+      
+      // Refetch sub-categories
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'sub-categories', id] });
+      // Also refetch parents to update subCategoryCount
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
+    },
+    onError: () => {
+      showToast('Failed to delete sub-category', 'error');
+    },
+  });
+
+  const handleDeleteSubCategory = (subCategory: any) => {
+    const hasPosts = (subCategory.postCount || 0) > 0;
+    
+    let message = `Are you sure you want to delete "${subCategory.name}"?`;
+    if (hasPosts) {
+      message += `\n\n⚠️ This sub-category has ${subCategory.postCount} post${subCategory.postCount === 1 ? '' : 's'}. `;
+      message += '\n\nDeleting this sub-category may affect associated content.';
+    }
+    
+    if (window.confirm(message)) {
+      deleteSubCategoryMutation.mutate(subCategory.id);
+    }
+  };
 
   const handleCreateSubCategory = () => {
     if (!subCategoryFormData.name.trim()) {
@@ -218,6 +271,16 @@ export default function WallCategoryDetailPage() {
                         {subCategory.postCount || 0} posts
                       </p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteSubCategory(subCategory)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={deleteSubCategoryMutation.isPending}
+                      title="Delete sub-category"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
