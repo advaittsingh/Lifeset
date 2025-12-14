@@ -86,9 +86,17 @@ export default function JobsPage() {
     mutationFn: (id: string) => jobsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['posts'] }); // Also invalidate posts since jobs are posts
       showToast('Job deleted successfully', 'success');
     },
-    onError: () => showToast('Failed to delete job', 'error'),
+    onError: (error: any) => {
+      console.error('Delete job error:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error?.message ||
+                          error.message ||
+                          'Failed to delete job';
+      showToast(errorMessage, 'error');
+    },
   });
 
 

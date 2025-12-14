@@ -174,8 +174,23 @@ export const jobsApi = {
   },
 
   delete: async (id: string) => {
-    const response = await apiClient.delete(`/jobs/${id}`);
-    return response.data;
+    // Jobs are stored as posts with postType: 'JOB', so delete via posts endpoint
+    try {
+      const response = await apiClient.delete(`/admin/posts/${id}`);
+      return response.data;
+    } catch (error: any) {
+      // If admin/posts endpoint fails, try the jobs endpoint as fallback
+      if (error.response?.status === 404) {
+        try {
+          const response = await apiClient.delete(`/jobs/${id}`);
+          return response.data;
+        } catch (fallbackError) {
+          // If both fail, throw the original error
+          throw error;
+        }
+      }
+      throw error;
+    }
   },
 
   getApplications: async (jobId: string) => {
