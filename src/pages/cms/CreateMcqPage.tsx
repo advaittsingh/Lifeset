@@ -24,6 +24,7 @@ export default function CreateMcqPage() {
     correctAnswer: 0,
     categoryId: '',
     explanation: '',
+    articleId: '', // Link to article
   });
 
   // Fetch categories
@@ -34,9 +35,10 @@ export default function CreateMcqPage() {
 
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
 
-  // Pre-fill category from URL params (from General Knowledge page)
+  // Pre-fill category from URL params (from General Knowledge/Current Affairs page)
   useEffect(() => {
     if (!isEditMode) {
+      const articleIdParam = searchParams.get('articleId');
       const categoryParam = searchParams.get('category');
       const subCategoryParam = searchParams.get('subCategory');
       const sectionParam = searchParams.get('section');
@@ -93,6 +95,7 @@ export default function CreateMcqPage() {
         correctAnswer: existingQuestion.correctAnswer || 0,
         categoryId: existingQuestion.categoryId || '',
         explanation: existingQuestion.explanation || '',
+        articleId: existingQuestion.metadata?.articleId || existingQuestion.articleId || '',
       });
     }
   }, [existingQuestion, isEditMode]);
@@ -107,6 +110,14 @@ export default function CreateMcqPage() {
       correctAnswer: data.correctAnswer,
       categoryId: data.categoryId || undefined,
       explanation: data.explanation || undefined,
+      articleId: data.articleId || undefined, // Link to article
+      metadata: {
+        articleId: data.articleId,
+        category: searchParams.get('category') || undefined,
+        subCategory: searchParams.get('subCategory') || undefined,
+        section: searchParams.get('section') || undefined,
+        country: searchParams.get('country') || undefined,
+      },
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
