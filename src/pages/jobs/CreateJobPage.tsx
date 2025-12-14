@@ -5,10 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import { ArrowLeft, Save, Eye, Briefcase, MapPin, DollarSign, Calendar, Users, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Briefcase, MapPin, DollarSign, Calendar, Users, Loader2, Building2, Clock, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { jobsApi } from '../../services/api/jobs';
+import { institutesApi } from '../../services/api/institutes';
+
+// Candidate Qualities options
+const candidateQualities = [
+  { id: 'outgoing', label: 'Outgoing', description: 'Energized by people, Expressive, Practical' },
+  { id: 'realistic', label: 'Realistic', description: 'Focus on facts and details, Trust experience over theories, Organized' },
+  { id: 'structured', label: 'Structured', description: 'Makes plans, Decisions, Deadlines, Logical, Objective' },
+  { id: 'prioritizes_fairness', label: 'Prioritizes fairness', description: 'Relies on analysis, Reflective, Energized by solitude' },
+  { id: 'reserved', label: 'Reserved', description: 'Future-oriented, Creative, Imaginative' },
+  { id: 'conceptual', label: 'Focus on concepts, patterns, possibilities', description: 'Flexible, Spontaneous, Adaptive' },
+  { id: 'open_ended', label: 'Open-ended', description: 'Empathetic, Values harmony, Considers emotions' },
+  { id: 'people_impact', label: 'People impact', description: 'Values relationships, Collaborative' },
+];
 
 export default function CreateJobPage() {
   const navigate = useNavigate();
@@ -18,15 +31,59 @@ export default function CreateJobPage() {
   const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
+    // Basic Job Details
     jobTitle: '',
-    jobDescription: '',
+    companyName: '',
+    industry: '',
+    selectRole: '',
     location: '',
-    salaryMin: '',
-    salaryMax: '',
-    experience: '',
+    clientToManage: '',
+    workingDays: '',
+    yearlySalary: '',
     skills: '',
-    applicationDeadline: '',
+    function: '',
+    experience: '',
+    jobType: '',
+    capacity: '',
+    workTime: '',
+    perksAndBenefits: '',
+    
+    // Description
+    jobDescription: '',
+    
+    // Candidate Qualities (for backend only)
+    candidateQualities: [] as string[],
+    
+    // Publishing
+    isPublished: false,
+    isPublic: true,
+    isPrivate: false,
+    privateFilters: {
+      selectCollege: '',
+      selectCourse: '',
+      selectCourseCategory: '',
+      selectYear: '',
+    },
   });
+
+  // Fetch courses and colleges for private filters
+  const { data: coursesData } = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => institutesApi.getCourses(),
+  });
+
+  const { data: collegesData } = useQuery({
+    queryKey: ['colleges'],
+    queryFn: () => institutesApi.getInstitutes(),
+  });
+
+  const courses = Array.isArray(coursesData) ? coursesData : (coursesData?.data || []);
+  const colleges = Array.isArray(collegesData) ? collegesData : (collegesData?.data || []);
+
+  // Get unique course categories
+  const courseCategories = Array.from(new Set(
+    courses.map((course: any) => course.category?.name || course.categoryName).filter(Boolean)
+  ));
 
   // Fetch existing job if editing
   const { data: existingJob, isLoading: isLoadingJob } = useQuery({
@@ -39,30 +96,83 @@ export default function CreateJobPage() {
   useEffect(() => {
     if (existingJob && isEditMode) {
       const job = existingJob.data || existingJob;
+      const metadata = job.metadata || job.post?.metadata || {};
       setFormData({
         jobTitle: job.jobTitle || job.title || '',
+        companyName: metadata.companyName || '',
+        industry: metadata.industry || '',
+        selectRole: metadata.selectRole || '',
+        location: job.location || metadata.location || '',
+        clientToManage: metadata.clientToManage || '',
+        workingDays: metadata.workingDays || '',
+        yearlySalary: metadata.yearlySalary || (job.salaryMin && job.salaryMax ? `${job.salaryMin}-${job.salaryMax}` : ''),
+        skills: Array.isArray(job.skills) ? job.skills.join(', ') : (metadata.skills || ''),
+        function: metadata.function || '',
+        experience: job.experience || metadata.experience || '',
+        jobType: metadata.jobType || '',
+        capacity: metadata.capacity || '',
+        workTime: metadata.workTime || '',
+        perksAndBenefits: metadata.perksAndBenefits || '',
         jobDescription: job.jobDescription || job.description || '',
-        location: job.location || '',
-        salaryMin: job.salaryMin?.toString() || '',
-        salaryMax: job.salaryMax?.toString() || '',
-        experience: job.experience || '',
-        skills: Array.isArray(job.skills) ? job.skills.join(', ') : '',
-        applicationDeadline: job.applicationDeadline || '',
+        candidateQualities: metadata.candidateQualities || [],
+        isPublished: job.isPublished || false,
+        isPublic: metadata.isPublic !== false,
+        isPrivate: metadata.isPrivate || false,
+        privateFilters: {
+          selectCollege: metadata.privateFilters?.selectCollege || '',
+          selectCourse: metadata.privateFilters?.selectCourse || '',
+          selectCourseCategory: metadata.privateFilters?.selectCourseCategory || '',
+          selectYear: metadata.privateFilters?.selectYear || '',
+        },
       });
     }
   }, [existingJob, isEditMode]);
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => jobsApi.create({
-      jobTitle: data.jobTitle,
-      jobDescription: data.jobDescription,
-      location: data.location || undefined,
-      salaryMin: data.salaryMin ? parseFloat(data.salaryMin) : undefined,
-      salaryMax: data.salaryMax ? parseFloat(data.salaryMax) : undefined,
-      experience: data.experience || undefined,
-      skills: data.skills.split(',').map(s => s.trim()).filter(Boolean),
-      applicationDeadline: data.applicationDeadline || undefined,
-    }),
+    mutationFn: (data: typeof formData) => {
+      // Parse yearly salary if it's a range
+      let salaryMin: number | undefined;
+      let salaryMax: number | undefined;
+      if (data.yearlySalary) {
+        if (data.yearlySalary.includes('-')) {
+          const [min, max] = data.yearlySalary.split('-').map(s => parseFloat(s.trim()));
+          salaryMin = isNaN(min) ? undefined : min;
+          salaryMax = isNaN(max) ? undefined : max;
+        } else {
+          const salary = parseFloat(data.yearlySalary);
+          if (!isNaN(salary)) {
+            salaryMin = salary;
+            salaryMax = salary;
+          }
+        }
+      }
+
+      return jobsApi.create({
+        jobTitle: data.jobTitle,
+        jobDescription: data.jobDescription,
+        location: data.location || undefined,
+        salaryMin,
+        salaryMax,
+        experience: data.experience || undefined,
+        skills: data.skills.split(',').map(s => s.trim()).filter(Boolean),
+        applicationDeadline: undefined,
+        companyName: data.companyName || undefined,
+        industry: data.industry || undefined,
+        selectRole: data.selectRole || undefined,
+        clientToManage: data.clientToManage || undefined,
+        workingDays: data.workingDays || undefined,
+        yearlySalary: data.yearlySalary || undefined,
+        function: data.function || undefined,
+        jobType: data.jobType || undefined,
+        capacity: data.capacity || undefined,
+        workTime: data.workTime || undefined,
+        perksAndBenefits: data.perksAndBenefits || undefined,
+        candidateQualities: data.candidateQualities.length > 0 ? data.candidateQualities : undefined,
+        isPublic: data.isPublic,
+        isPrivate: data.isPrivate,
+        privateFilters: data.isPrivate ? data.privateFilters : undefined,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       showToast('Job posted successfully', 'success');
@@ -72,16 +182,54 @@ export default function CreateJobPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: typeof formData) => jobsApi.update(id!, {
-      jobTitle: data.jobTitle,
-      jobDescription: data.jobDescription,
-      location: data.location || undefined,
-      salaryMin: data.salaryMin ? parseFloat(data.salaryMin) : undefined,
-      salaryMax: data.salaryMax ? parseFloat(data.salaryMax) : undefined,
-      experience: data.experience || undefined,
-      skills: data.skills.split(',').map(s => s.trim()).filter(Boolean),
-      applicationDeadline: data.applicationDeadline || undefined,
-    }),
+    mutationFn: (data: typeof formData) => {
+      // Parse yearly salary if it's a range
+      let salaryMin: number | undefined;
+      let salaryMax: number | undefined;
+      if (data.yearlySalary) {
+        if (data.yearlySalary.includes('-')) {
+          const [min, max] = data.yearlySalary.split('-').map(s => parseFloat(s.trim()));
+          salaryMin = isNaN(min) ? undefined : min;
+          salaryMax = isNaN(max) ? undefined : max;
+        } else {
+          const salary = parseFloat(data.yearlySalary);
+          if (!isNaN(salary)) {
+            salaryMin = salary;
+            salaryMax = salary;
+          }
+        }
+      }
+
+      // For update, we'll need to update the post metadata as well
+      // This assumes the backend can handle metadata updates
+      return jobsApi.update(id!, {
+        jobTitle: data.jobTitle,
+        jobDescription: data.jobDescription,
+        location: data.location || undefined,
+        salaryMin,
+        salaryMax,
+        experience: data.experience || undefined,
+        skills: data.skills.split(',').map(s => s.trim()).filter(Boolean),
+        // Include metadata fields - backend should handle these
+        metadata: {
+          companyName: data.companyName,
+          industry: data.industry,
+          selectRole: data.selectRole,
+          clientToManage: data.clientToManage,
+          workingDays: data.workingDays,
+          yearlySalary: data.yearlySalary,
+          function: data.function,
+          jobType: data.jobType,
+          capacity: data.capacity,
+          workTime: data.workTime,
+          perksAndBenefits: data.perksAndBenefits,
+          candidateQualities: data.candidateQualities,
+          isPublic: data.isPublic,
+          isPrivate: data.isPrivate,
+          privateFilters: data.isPrivate ? data.privateFilters : undefined,
+        },
+      } as any);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job', id] });
@@ -106,6 +254,15 @@ export default function CreateJobPage() {
     } else {
       createMutation.mutate(formData);
     }
+  };
+
+  const toggleCandidateQuality = (qualityId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      candidateQualities: prev.candidateQualities.includes(qualityId)
+        ? prev.candidateQualities.filter(id => id !== qualityId)
+        : [...prev.candidateQualities, qualityId]
+    }));
   };
 
   if (isLoadingJob && isEditMode) {
@@ -137,7 +294,7 @@ export default function CreateJobPage() {
                 {isEditMode ? 'Edit Job Posting' : 'Create Job Posting'}
               </h1>
               <p className="text-slate-600 mt-1">
-                {isEditMode ? 'Update job posting details' : 'Add a new job posting to the platform'}
+                {isEditMode ? 'Update job posting details' : 'Add a new job or internship posting'}
               </p>
             </div>
           </div>
@@ -154,7 +311,7 @@ export default function CreateJobPage() {
             ) : (
               <>
                 <Save className="h-4 w-4 mr-2" />
-                {isEditMode ? 'Update Job' : 'Create Job'}
+                Save
               </>
             )}
           </Button>
@@ -176,108 +333,338 @@ export default function CreateJobPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
-              {/* Job Title */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  Job Title *
-                </label>
-                <Input
-                  placeholder="e.g., Senior Software Engineer"
-                  value={formData.jobTitle}
-                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                  className="mt-1"
-                />
+              {/* Job Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Job Title *</label>
+                  <Input
+                    placeholder="e.g., Senior Software Engineer"
+                    value={formData.jobTitle}
+                    onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Company Name</label>
+                  <Input
+                    placeholder="Enter company name"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Industry</label>
+                  <Input
+                    placeholder="e.g., Technology, Finance"
+                    value={formData.industry}
+                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Select Role</label>
+                  <Input
+                    placeholder="e.g., Full-time, Part-time, Intern"
+                    value={formData.selectRole}
+                    onChange={(e) => setFormData({ ...formData, selectRole: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Location
+                  </label>
+                  <Input
+                    placeholder="e.g., Remote, Mumbai, Bangalore"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Client to Manage</label>
+                  <Input
+                    placeholder="Enter client name"
+                    value={formData.clientToManage}
+                    onChange={(e) => setFormData({ ...formData, clientToManage: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Working Days
+                  </label>
+                  <Input
+                    placeholder="e.g., Monday-Friday"
+                    value={formData.workingDays}
+                    onChange={(e) => setFormData({ ...formData, workingDays: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Yearly Salary
+                  </label>
+                  <Input
+                    placeholder="e.g., 500000 or 500000-800000"
+                    value={formData.yearlySalary}
+                    onChange={(e) => setFormData({ ...formData, yearlySalary: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Skills</label>
+                  <Input
+                    placeholder="e.g., React, Node.js, TypeScript"
+                    value={formData.skills}
+                    onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Separate multiple skills with commas</p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Function</label>
+                  <Input
+                    placeholder="e.g., Engineering, Sales, Marketing"
+                    value={formData.function}
+                    onChange={(e) => setFormData({ ...formData, function: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Experience</label>
+                  <Input
+                    placeholder="e.g., 2-5 years"
+                    value={formData.experience}
+                    onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Job Type</label>
+                  <select
+                    value={formData.jobType}
+                    onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white mt-1"
+                  >
+                    <option value="">Select Job Type</option>
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Internship">Internship</option>
+                    <option value="Freelance">Freelance</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Capacity</label>
+                  <Input
+                    placeholder="e.g., 5 positions"
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Work Time
+                  </label>
+                  <Input
+                    placeholder="e.g., 9 AM - 6 PM"
+                    value={formData.workTime}
+                    onChange={(e) => setFormData({ ...formData, workTime: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Perks & Benefits</label>
+                  <Textarea
+                    placeholder="e.g., Health insurance, Flexible hours, Remote work"
+                    value={formData.perksAndBenefits}
+                    onChange={(e) => setFormData({ ...formData, perksAndBenefits: e.target.value })}
+                    className="mt-1"
+                    rows={3}
+                  />
+                </div>
               </div>
 
-              {/* Job Description */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Job Description *</label>
+              {/* Candidate Qualities Section */}
+              <div className="pt-4 border-t border-slate-200">
+                <label className="text-sm font-semibold text-slate-700 mb-3 block">
+                  Select Qualities looking in candidates (For Backend only)
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {candidateQualities.map((quality) => (
+                    <div
+                      key={quality.id}
+                      onClick={() => toggleCandidateQuality(quality.id)}
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.candidateQualities.includes(quality.id)
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
+                          formData.candidateQualities.includes(quality.id)
+                            ? 'border-blue-500 bg-blue-500'
+                            : 'border-slate-300'
+                        }`}>
+                          {formData.candidateQualities.includes(quality.id) && (
+                            <CheckCircle2 className="h-3 w-3 text-white" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-900">{quality.label}</p>
+                          <p className="text-xs text-slate-500 mt-1">{quality.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  Selected: {formData.candidateQualities.length} quality/qualities
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="pt-4 border-t border-slate-200">
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Description *</label>
                 <Textarea
                   placeholder="Describe the job role, responsibilities, and requirements..."
                   value={formData.jobDescription}
                   onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
-                  className="mt-1 min-h-[120px]"
-                  rows={6}
+                  className="mt-1 min-h-[150px]"
+                  rows={8}
                 />
               </div>
 
-              {/* Location */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Location
-                </label>
-                <Input
-                  placeholder="e.g., Remote, Mumbai, Bangalore"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-
-              {/* Salary Range */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Min Salary
-                  </label>
-                  <Input
-                    type="number"
-                    placeholder="50000"
-                    value={formData.salaryMin}
-                    onChange={(e) => setFormData({ ...formData, salaryMin: e.target.value })}
-                    className="mt-1"
-                  />
+              {/* Publishing Controls */}
+              <div className="pt-4 border-t border-slate-200 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isPublic"
+                      checked={formData.isPublic}
+                      onChange={(e) => {
+                        const isPublic = e.target.checked;
+                        setFormData(prev => ({
+                          ...prev,
+                          isPublic,
+                          isPrivate: !isPublic && prev.isPrivate ? false : prev.isPrivate,
+                        }));
+                      }}
+                      className="h-4 w-4 text-blue-600 rounded"
+                    />
+                    <label htmlFor="isPublic" className="text-sm font-medium text-slate-700 cursor-pointer">
+                      Public
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isPrivate"
+                      checked={formData.isPrivate}
+                      onChange={(e) => {
+                        const isPrivate = e.target.checked;
+                        setFormData(prev => ({
+                          ...prev,
+                          isPrivate,
+                          isPublic: isPrivate ? false : prev.isPublic,
+                        }));
+                      }}
+                      className="h-4 w-4 text-blue-600 rounded"
+                    />
+                    <label htmlFor="isPrivate" className="text-sm font-medium text-slate-700 cursor-pointer">
+                      Private
+                    </label>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Max Salary</label>
-                  <Input
-                    type="number"
-                    placeholder="100000"
-                    value={formData.salaryMax}
-                    onChange={(e) => setFormData({ ...formData, salaryMax: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
 
-              {/* Experience */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Experience Required</label>
-                <Input
-                  placeholder="e.g., 2-5 years"
-                  value={formData.experience}
-                  onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-
-              {/* Skills */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Skills (comma-separated)</label>
-                <Input
-                  placeholder="e.g., React, Node.js, TypeScript"
-                  value={formData.skills}
-                  onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                  className="mt-1"
-                />
-                <p className="text-xs text-slate-500 mt-1">Separate multiple skills with commas</p>
-              </div>
-
-              {/* Application Deadline */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Application Deadline
-                </label>
-                <Input
-                  type="date"
-                  value={formData.applicationDeadline}
-                  onChange={(e) => setFormData({ ...formData, applicationDeadline: e.target.value })}
-                  className="mt-1"
-                />
+                {/* Private Filters */}
+                {formData.isPrivate && (
+                  <div className="space-y-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-sm font-semibold text-slate-700 mb-3">Filter for Private</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-600 mb-1 block">Select College</label>
+                        <select
+                          value={formData.privateFilters.selectCollege}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            privateFilters: { ...prev.privateFilters, selectCollege: e.target.value }
+                          }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">Select College</option>
+                          {colleges.map((college: any) => (
+                            <option key={college.id} value={college.id}>
+                              {college.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-600 mb-1 block">Select Course</label>
+                        <select
+                          value={formData.privateFilters.selectCourse}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            privateFilters: { ...prev.privateFilters, selectCourse: e.target.value }
+                          }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">Select Course</option>
+                          {courses.map((course: any) => (
+                            <option key={course.id} value={course.id}>
+                              {course.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-600 mb-1 block">Select Courses Main Category</label>
+                        <select
+                          value={formData.privateFilters.selectCourseCategory}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            privateFilters: { ...prev.privateFilters, selectCourseCategory: e.target.value }
+                          }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">Select Category</option>
+                          {courseCategories.map((category: string) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-600 mb-1 block">Select Year</label>
+                        <select
+                          value={formData.privateFilters.selectYear}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            privateFilters: { ...prev.privateFilters, selectYear: e.target.value }
+                          }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">Select Year</option>
+                          <option value="1">Year 1</option>
+                          <option value="2">Year 2</option>
+                          <option value="3">Year 3</option>
+                          <option value="4">Year 4</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -290,7 +677,7 @@ export default function CreateJobPage() {
                   <Eye className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg font-bold text-slate-900">Live Preview</CardTitle>
+                  <CardTitle className="text-lg font-bold text-slate-900">Preview</CardTitle>
                   <CardDescription className="text-slate-600">See how your job posting will appear</CardDescription>
                 </div>
               </div>
@@ -298,141 +685,102 @@ export default function CreateJobPage() {
             <CardContent className="pt-6">
               <div className="space-y-4">
                 {/* Preview Container */}
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border-2 border-dashed border-slate-300">
-                  <div className="text-center mb-4">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                      Job Posting Preview
-                    </p>
-                    <div className="w-full h-px bg-slate-200 mb-4"></div>
-                  </div>
-
-                  {/* Job Preview Card */}
-                  <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200 p-6 space-y-4">
-                    {formData.jobTitle ? (
-                      <>
-                        <div>
-                          <h3 className="text-2xl font-bold text-slate-900 mb-2">{formData.jobTitle}</h3>
-                          {formData.location && (
-                            <div className="flex items-center gap-2 text-slate-600">
-                              <MapPin className="h-4 w-4" />
-                              <span className="text-sm">{formData.location}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {formData.jobDescription && (
-                          <div>
-                            <p className="text-sm font-semibold text-slate-700 mb-2">Description</p>
-                            <p className="text-sm text-slate-600 whitespace-pre-wrap line-clamp-6">
-                              {formData.jobDescription}
-                            </p>
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border-2 border-dashed border-slate-300 min-h-[400px]">
+                  {formData.jobTitle ? (
+                    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200 p-6 space-y-4">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-900 mb-2">{formData.jobTitle}</h3>
+                        {formData.companyName && (
+                          <div className="flex items-center gap-2 text-slate-600 mb-2">
+                            <Building2 className="h-4 w-4" />
+                            <span className="text-sm">{formData.companyName}</span>
                           </div>
                         )}
+                        {formData.location && (
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <MapPin className="h-4 w-4" />
+                            <span className="text-sm">{formData.location}</span>
+                          </div>
+                        )}
+                      </div>
 
-                        <div className="grid gap-3 pt-4 border-t border-slate-200">
-                          {formData.salaryMin && (
-                            <div className="flex items-center gap-2">
-                              <DollarSign className="h-4 w-4 text-slate-400" />
-                              <span className="text-sm text-slate-600">
-                                {formData.salaryMin && formData.salaryMax
-                                  ? `₹${parseInt(formData.salaryMin).toLocaleString()} - ₹${parseInt(formData.salaryMax).toLocaleString()}`
-                                  : formData.salaryMin
-                                  ? `₹${parseInt(formData.salaryMin).toLocaleString()}+`
-                                  : 'Salary not specified'}
-                              </span>
-                            </div>
-                          )}
-
-                          {formData.experience && (
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-slate-400" />
-                              <span className="text-sm text-slate-600">{formData.experience}</span>
-                            </div>
-                          )}
-
-                          {formData.skills && (
-                            <div>
-                              <p className="text-xs font-semibold text-slate-500 mb-1">Required Skills</p>
-                              <div className="flex flex-wrap gap-2">
-                                {formData.skills.split(',').map((skill, idx) => (
-                                  skill.trim() && (
-                                    <span
-                                      key={idx}
-                                      className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium"
-                                    >
-                                      {skill.trim()}
-                                    </span>
-                                  )
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {formData.applicationDeadline && (
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-slate-400" />
-                              <span className="text-sm text-slate-600">
-                                Deadline: {new Date(formData.applicationDeadline).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
+                      {formData.jobDescription && (
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700 mb-2">Description</p>
+                          <p className="text-sm text-slate-600 whitespace-pre-wrap line-clamp-6">
+                            {formData.jobDescription}
+                          </p>
                         </div>
+                      )}
 
-                        <div className="pt-4 border-t border-slate-200">
-                          <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                            Apply Now
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-8">
+                      <div className="grid gap-3 pt-4 border-t border-slate-200">
+                        {formData.yearlySalary && (
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-slate-400" />
+                            <span className="text-sm text-slate-600">₹{formData.yearlySalary}</span>
+                          </div>
+                        )}
+                        {formData.experience && (
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-slate-400" />
+                            <span className="text-sm text-slate-600">{formData.experience}</span>
+                          </div>
+                        )}
+                        {formData.skills && (
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500 mb-1">Required Skills</p>
+                            <div className="flex flex-wrap gap-2">
+                              {formData.skills.split(',').map((skill, idx) => (
+                                skill.trim() && (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium"
+                                  >
+                                    {skill.trim()}
+                                  </span>
+                                )
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-200">
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                          Apply Now
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
                         <Briefcase className="h-12 w-12 text-slate-400 mx-auto mb-2" />
                         <p className="text-sm text-slate-500 font-medium">No job details entered</p>
                         <p className="text-xs text-slate-400 mt-1">Fill in the form to see preview</p>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Preview Info */}
-                  <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
-                    <p className="text-xs text-blue-800">
-                      <strong>Preview Note:</strong> This is how the job posting will appear to users. They can click "Apply Now" to submit their application.
-                    </p>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Preview Status */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-sm font-medium text-slate-700">Title Status</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      formData.jobTitle
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                    }`}>
-                      {formData.jobTitle ? '✓ Title Set' : '⚠ Required'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-sm font-medium text-slate-700">Description Status</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      formData.jobDescription
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                    }`}>
-                      {formData.jobDescription ? '✓ Description Set' : '⚠ Required'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-sm font-medium text-slate-700">Additional Info</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      formData.location || formData.skills || formData.salaryMin
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}>
-                      {formData.location || formData.skills || formData.salaryMin ? '✓ Added' : '○ Optional'}
-                    </span>
-                  </div>
+                {/* Publish Button */}
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600"
+                  >
+                    {(createMutation.isPending || updateMutation.isPending) ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Publish
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -442,4 +790,3 @@ export default function CreateJobPage() {
     </AdminLayout>
   );
 }
-

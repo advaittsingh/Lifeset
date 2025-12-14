@@ -50,6 +50,26 @@ export const jobsApi = {
     experience?: string;
     skills: string[];
     applicationDeadline?: string;
+    companyName?: string;
+    industry?: string;
+    selectRole?: string;
+    clientToManage?: string;
+    workingDays?: string;
+    yearlySalary?: string;
+    function?: string;
+    jobType?: string;
+    capacity?: string;
+    workTime?: string;
+    perksAndBenefits?: string;
+    candidateQualities?: string[];
+    isPublic?: boolean;
+    isPrivate?: boolean;
+    privateFilters?: {
+      selectCollege?: string;
+      selectCourse?: string;
+      selectCourseCategory?: string;
+      selectYear?: string;
+    };
   }) => {
     // For admin, we'll create via feeds endpoint which handles both post and job creation
     const response = await apiClient.post('/feeds', {
@@ -63,6 +83,21 @@ export const jobsApi = {
         experience: data.experience,
         skills: data.skills,
         applicationDeadline: data.applicationDeadline,
+        companyName: data.companyName,
+        industry: data.industry,
+        selectRole: data.selectRole,
+        clientToManage: data.clientToManage,
+        workingDays: data.workingDays,
+        yearlySalary: data.yearlySalary,
+        function: data.function,
+        jobType: data.jobType,
+        capacity: data.capacity,
+        workTime: data.workTime,
+        perksAndBenefits: data.perksAndBenefits,
+        candidateQualities: data.candidateQualities,
+        isPublic: data.isPublic,
+        isPrivate: data.isPrivate,
+        privateFilters: data.privateFilters,
       },
     });
     return response.data.data || response.data;
