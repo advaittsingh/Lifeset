@@ -71,36 +71,101 @@ export const jobsApi = {
       selectYear?: string;
     };
   }) => {
-    // For admin, we'll create via feeds endpoint which handles both post and job creation
-    const response = await apiClient.post('/feeds', {
-      title: data.jobTitle,
-      description: data.jobDescription,
+    // Helper function to remove empty/undefined values
+    const cleanValue = (value: any): any => {
+      if (value === undefined || value === null || value === '') {
+        return undefined;
+      }
+      if (Array.isArray(value)) {
+        const filtered = value.filter(v => v !== undefined && v !== null && v !== '');
+        return filtered.length > 0 ? filtered : undefined;
+      }
+      if (typeof value === 'object') {
+        const cleaned: any = {};
+        for (const key in value) {
+          const cleanedVal = cleanValue(value[key]);
+          if (cleanedVal !== undefined) {
+            cleaned[key] = cleanedVal;
+          }
+        }
+        return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+      }
+      return value;
+    };
+
+    // Convert string fields to numbers where appropriate
+    const parseNumber = (value: string | undefined): number | undefined => {
+      if (!value || value === '') return undefined;
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? undefined : parsed;
+    };
+
+    // Build metadata object and clean it
+    const metadata: any = {
+      location: data.location,
+      salaryMin: data.salaryMin,
+      salaryMax: data.salaryMax,
+      experience: data.experience ? (parseNumber(data.experience) ?? data.experience) : undefined,
+      skills: data.skills && data.skills.length > 0 ? data.skills : undefined,
+      applicationDeadline: data.applicationDeadline,
+      companyName: data.companyName,
+      industry: data.industry,
+      selectRole: data.selectRole,
+      clientToManage: data.clientToManage,
+      workingDays: data.workingDays,
+      yearlySalary: data.yearlySalary,
+      function: data.function,
+      jobType: data.jobType,
+      capacity: data.capacity ? (parseNumber(data.capacity) ?? data.capacity) : undefined,
+      workTime: data.workTime,
+      perksAndBenefits: data.perksAndBenefits,
+      candidateQualities: data.candidateQualities && data.candidateQualities.length > 0 ? data.candidateQualities : undefined,
+      isPublic: data.isPublic,
+      isPrivate: data.isPrivate,
+      privateFilters: data.isPrivate && data.privateFilters ? data.privateFilters : undefined,
+    };
+
+    // Clean the metadata object
+    const cleanedMetadata = cleanValue(metadata);
+
+    // Build the request payload
+    const payload: any = {
+      title: data.jobTitle.trim(),
+      description: data.jobDescription.trim(),
       postType: 'JOB',
-      metadata: {
-        location: data.location,
-        salaryMin: data.salaryMin,
-        salaryMax: data.salaryMax,
-        experience: data.experience,
-        skills: data.skills,
-        applicationDeadline: data.applicationDeadline,
-        companyName: data.companyName,
-        industry: data.industry,
-        selectRole: data.selectRole,
-        clientToManage: data.clientToManage,
-        workingDays: data.workingDays,
-        yearlySalary: data.yearlySalary,
-        function: data.function,
-        jobType: data.jobType,
-        capacity: data.capacity,
-        workTime: data.workTime,
-        perksAndBenefits: data.perksAndBenefits,
-        candidateQualities: data.candidateQualities,
-        isPublic: data.isPublic,
-        isPrivate: data.isPrivate,
-        privateFilters: data.privateFilters,
-      },
-    });
-    return response.data.data || response.data;
+    };
+
+    // Only include metadata if it has values
+    if (cleanedMetadata && Object.keys(cleanedMetadata).length > 0) {
+      payload.metadata = cleanedMetadata;
+    }
+
+    // Log the payload in development for debugging
+    if (import.meta.env.DEV) {
+      console.log('Creating job with payload:', JSON.stringify(payload, null, 2));
+    }
+
+    try {
+      const response = await apiClient.post('/feeds', payload);
+      return response.data.data || response.data;
+    } catch (error: any) {
+      // Enhanced error logging
+      const errorDetails = {
+        error: error.response?.data || error.message,
+        payload: payload,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        fullError: error.response?.data,
+      };
+      console.error('Job creation error:', errorDetails);
+      
+      // Log the full error response for debugging
+      if (error.response?.data) {
+        console.error('Backend error response:', JSON.stringify(error.response.data, null, 2));
+      }
+      
+      throw error;
+    }
   },
 
   update: async (id: string, data: Partial<JobPost>) => {

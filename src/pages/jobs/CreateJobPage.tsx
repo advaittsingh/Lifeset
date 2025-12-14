@@ -178,7 +178,15 @@ export default function CreateJobPage() {
       showToast('Job posted successfully', 'success');
       navigate('/jobs');
     },
-    onError: () => showToast('Failed to create job', 'error'),
+    onError: (error: any) => {
+      console.error('Create job error:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error?.message ||
+                          error.response?.data?.error ||
+                          error.message ||
+                          'Failed to create job. Please check the console for details.';
+      showToast(errorMessage, 'error');
+    },
   });
 
   const updateMutation = useMutation({
