@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
 import { Briefcase, Plus, MapPin, DollarSign, Users, Loader2, Trash2, Edit, Eye } from 'lucide-react';
 import { jobsApi, JobPost } from '../../services/api/jobs';
+import { postsApi } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function JobsPage() {
@@ -18,11 +19,47 @@ export default function JobsPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
+  // Try to fetch from jobs API first, fallback to posts API
   const { data: jobsData, isLoading, error } = useQuery({
     queryKey: ['jobs', searchTerm],
-    queryFn: () => jobsApi.getAll({
-      search: searchTerm || undefined,
-    }),
+    queryFn: async () => {
+      try {
+        // First try the jobs API
+        const jobsResult = await jobsApi.getAll({
+          search: searchTerm || undefined,
+        });
+        if (jobsResult && (Array.isArray(jobsResult) || jobsResult.data)) {
+          return jobsResult;
+        }
+        throw new Error('Jobs API returned empty result');
+      } catch (err) {
+        // Fallback to posts API with postType filter
+        const postsResult = await postsApi.getAll({
+          postType: 'JOB',
+          search: searchTerm || undefined,
+        });
+        // Transform posts to job format
+        const posts = Array.isArray(postsResult) ? postsResult : (postsResult?.data || []);
+        return posts.map((post: any) => ({
+          id: post.id,
+          postId: post.id,
+          jobTitle: post.title,
+          jobDescription: post.description,
+          location: post.metadata?.location,
+          salaryMin: post.metadata?.salaryMin,
+          salaryMax: post.metadata?.salaryMax,
+          experience: post.metadata?.experience,
+          skills: post.metadata?.skills || [],
+          applicationDeadline: post.metadata?.applicationDeadline,
+          views: post.views || 0,
+          applications: post.applications || 0,
+          createdAt: post.createdAt,
+          updatedAt: post.updatedAt,
+          post: post,
+          company: post.user,
+        }));
+      }
+    },
   });
 
   const jobs = jobsData?.data || jobsData || [];
@@ -42,9 +79,17 @@ export default function JobsPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-96">
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-red-200 bg-red-50 max-w-md">
             <CardContent className="pt-6">
-              <p className="text-red-800">Failed to load jobs. Please try again.</p>
+              <div className="text-center space-y-4">
+                <p className="text-red-800 font-medium">Failed to load jobs. Please try again.</p>
+                <Button
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['jobs'] })}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Retry
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
