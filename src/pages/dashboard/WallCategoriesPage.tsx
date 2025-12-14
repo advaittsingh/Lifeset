@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { FileText, ArrowLeft, Plus, Search, Loader2, Tag, ChevronRight } from 'lucide-react';
+import { FileText, ArrowLeft, Plus, Search, Loader2, Tag, ChevronRight, AlertCircle, RefreshCw } from 'lucide-react';
 import { postsApi } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -29,17 +29,27 @@ export default function WallCategoriesPage() {
   });
 
   // Fetch categories from API
-  const { data: categoriesData, isLoading } = useQuery({
+  const { data: categoriesData, isLoading, error: categoriesError, refetch: refetchCategories } = useQuery({
     queryKey: ['wall-categories', searchTerm],
     queryFn: async () => {
       try {
         const data = await postsApi.getWallCategories();
         return Array.isArray(data) ? { data } : data;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching wall categories:', error);
-        return { data: [] };
+        // Log detailed error information
+        if (error?.response) {
+          console.error('Error response:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data,
+            headers: error.response.headers
+          });
+        }
+        throw error; // Re-throw to let React Query handle it
       }
     },
+    retry: 1, // Only retry once
   });
 
   const allCategories = categoriesData?.data || [];
@@ -426,6 +436,41 @@ export default function WallCategoriesPage() {
             {isLoading ? (
               <div className="text-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+              </div>
+            ) : categoriesError ? (
+              <div className="text-center py-12">
+                <div className="max-w-md mx-auto">
+                  <div className="p-4 rounded-lg border border-red-200 bg-red-50">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 text-left">
+                        <p className="font-semibold text-red-900 mb-1">Failed to load categories</p>
+                        <p className="text-sm text-red-700 mb-3">
+                          {(categoriesError as any)?.response?.data?.message || 
+                           (categoriesError as any)?.message || 
+                           'The server returned an error. Please check the backend logs.'}
+                        </p>
+                        {(categoriesError as any)?.response?.status === 500 && (
+                          <p className="text-xs text-red-600 mb-3">
+                            Status: 500 Internal Server Error
+                            {(categoriesError as any)?.response?.data?.error && (
+                              <span className="block mt-1">Error: {(categoriesError as any).response.data.error}</span>
+                            )}
+                          </p>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => refetchCategories()}
+                          className="mt-2"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : filteredCategories.length === 0 ? (
               <div className="text-center py-12 text-slate-500">
