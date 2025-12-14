@@ -46,12 +46,44 @@ export default function WallCategoriesPage() {
   
   // Filter to show only top-level categories (no parentCategoryId)
   const topLevelCategories = useMemo(() => {
+    // Debug: Log all categories to see their structure
+    if (process.env.NODE_ENV === 'development' && allCategories.length > 0) {
+      console.log('All categories from API:', allCategories);
+      allCategories.forEach((cat: any) => {
+        console.log(`Category: ${cat.name}`, {
+          metadata: cat.metadata,
+          parentCategoryId: cat.parentCategoryId,
+          parentCategory: cat.parentCategory,
+          fullObject: cat
+        });
+      });
+    }
+    
     return allCategories.filter((cat: any) => {
-      const hasParent = cat.metadata?.parentCategoryId || 
+      // Check all possible locations for parentCategoryId
+      const parentId = cat.metadata?.parentCategoryId || 
                        cat.parentCategoryId || 
                        cat.parentCategory?.id ||
-                       (cat.metadata?.parentCategory && typeof cat.metadata.parentCategory === 'string' ? cat.metadata.parentCategory : cat.metadata?.parentCategory?.id);
-      return !hasParent;
+                       (cat.metadata?.parentCategory && typeof cat.metadata.parentCategory === 'string' ? cat.metadata.parentCategory : cat.metadata?.parentCategory?.id) ||
+                       cat.parentId; // Also check parentId directly
+      
+      // A category is top-level if it has no parent ID (null, undefined, empty string, or falsy)
+      // Also check if parentId is explicitly false or 0 (which shouldn't be valid IDs)
+      const isTopLevel = !parentId || 
+                        parentId === '' || 
+                        parentId === null || 
+                        parentId === undefined ||
+                        parentId === false ||
+                        parentId === 0;
+      
+      // Debug logging
+      if (process.env.NODE_ENV === 'development') {
+        if (!isTopLevel) {
+          console.log('Sub-category filtered out:', cat.name, 'Parent ID:', parentId, 'Full cat:', cat);
+        }
+      }
+      
+      return isTopLevel;
     });
   }, [allCategories]);
   
