@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
-import { ArrowLeft, Save, Eye, BookOpen, Loader2, Image as ImageIcon, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Save, Eye, BookOpen, Loader2, Image as ImageIcon, HelpCircle, CheckCircle2, XCircle, Plus, X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi } from '../../services/api/cms';
@@ -25,6 +25,17 @@ export default function CreateGeneralKnowledgePage() {
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [newSubCategory, setNewSubCategory] = useState('');
   const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
+  
+  // MCQ Dialog state
+  const [isMcqDialogOpen, setIsMcqDialogOpen] = useState(false);
+  const [mcqFormData, setMcqFormData] = useState({
+    question: '',
+    options: ['', '', '', ''],
+    correctAnswer: 0,
+    categoryId: '',
+    explanation: '',
+  });
+  const [createdMcqs, setCreatedMcqs] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -67,6 +78,14 @@ export default function CreateGeneralKnowledgePage() {
   });
 
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
+
+  // Fetch MCQ categories
+  const { data: mcqCategoriesData } = useQuery({
+    queryKey: ['mcq-categories'],
+    queryFn: () => cmsApi.getMcqCategories(),
+  });
+
+  const mcqCategories = Array.isArray(mcqCategoriesData) ? mcqCategoriesData : (mcqCategoriesData?.data || []);
 
   // Normalise sub-category options from categories list
   useEffect(() => {
@@ -339,6 +358,98 @@ export default function CreateGeneralKnowledgePage() {
     setFormData(prev => ({ ...prev, subCategory: trimmed }));
     setNewSubCategory('');
     showToast('Sub-category added', 'success');
+  };
+
+  // MCQ Dialog handlers
+  const handleOpenMcqDialog = () => {
+    if (!formData.articleId && !id) {
+      showToast('Please create the article first', 'error');
+      return;
+    }
+    // Pre-fill MCQ category if available
+    if (formData.categoryId) {
+      const matchingCategory = mcqCategories.find((cat: any) => 
+        cat.id === formData.categoryId || cat.name?.toLowerCase().includes(formData.category?.toLowerCase() || '')
+      );
+      if (matchingCategory) {
+        setMcqFormData(prev => ({ ...prev, categoryId: matchingCategory.id }));
+      }
+    }
+    setIsMcqDialogOpen(true);
+  };
+
+  const handleCloseMcqDialog = () => {
+    setIsMcqDialogOpen(false);
+    // Reset form and created MCQs list when closing
+    setMcqFormData({
+      question: '',
+      options: ['', '', '', ''],
+      correctAnswer: 0,
+      categoryId: '',
+      explanation: '',
+    });
+    setCreatedMcqs([]);
+  };
+
+  const updateMcqOption = (index: number, value: string) => {
+    const newOptions = [...mcqFormData.options];
+    newOptions[index] = value;
+    setMcqFormData({ ...mcqFormData, options: newOptions });
+  };
+
+  const createMcqMutation = useMutation({
+    mutationFn: (data: typeof mcqFormData) => {
+      const articleId = formData.articleId || id;
+      return cmsApi.createMcqQuestion({
+        question: data.question,
+        options: data.options.map((opt, idx) => ({
+          text: opt,
+          isCorrect: idx === data.correctAnswer,
+        })),
+        correctAnswer: data.correctAnswer,
+        categoryId: data.categoryId || undefined,
+        explanation: data.explanation || undefined,
+        articleId: articleId || undefined,
+        metadata: {
+          articleId: articleId,
+          category: formData.category || undefined,
+          subCategory: formData.subCategory || undefined,
+          section: formData.section || undefined,
+          country: formData.country || undefined,
+        },
+      });
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
+      const createdMcq = Array.isArray(response) ? response[0] : response;
+      setCreatedMcqs(prev => [...prev, createdMcq]);
+      showToast('MCQ question created successfully', 'success');
+      // Reset form but keep dialog open
+      setMcqFormData({
+        question: '',
+        options: ['', '', '', ''],
+        correctAnswer: 0,
+        categoryId: mcqFormData.categoryId, // Keep category
+        explanation: '',
+      });
+    },
+    onError: () => showToast('Failed to create MCQ question', 'error'),
+  });
+
+  const handleCreateMcq = () => {
+    if (!mcqFormData.question.trim()) {
+      showToast('Please enter a question', 'error');
+      return;
+    }
+    if (mcqFormData.options.filter(opt => opt.trim()).length < 2) {
+      showToast('Please provide at least 2 options', 'error');
+      return;
+    }
+    if (mcqFormData.correctAnswer < 0 || mcqFormData.correctAnswer >= mcqFormData.options.length) {
+      showToast('Please select a valid correct answer', 'error');
+      return;
+    }
+    createMcqMutation.mutate(mcqFormData);
   };
 
   if (isLoadingItem && isEditMode) {
@@ -891,14 +1002,7 @@ export default function CreateGeneralKnowledgePage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      if (!formData.articleId && !id) {
-                        showToast('Please create the article first', 'error');
-                        return;
-                      }
-                      const articleId = formData.articleId || id;
-                      navigate(`/cms/mcq/create?articleId=${articleId}&categoryId=${formData.categoryId}&category=${encodeURIComponent(formData.category)}&subCategory=${encodeURIComponent(formData.subCategory)}&section=${encodeURIComponent(formData.section)}&country=${encodeURIComponent(formData.country)}`);
-                    }}
+                    onClick={handleOpenMcqDialog}
                     disabled={!formData.articleId && !id}
                     className="flex-1"
                   >
@@ -1139,6 +1243,163 @@ export default function CreateGeneralKnowledgePage() {
                 'Create'
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create MCQ Dialog */}
+      <Dialog open={isMcqDialogOpen} onOpenChange={setIsMcqDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Create MCQ Questions</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCloseMcqDialog}
+                className="h-6 w-6 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Created MCQs List */}
+            {createdMcqs.length > 0 && (
+              <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">
+                  Created MCQs ({createdMcqs.length})
+                </h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {createdMcqs.map((mcq, idx) => (
+                    <div key={mcq.id || idx} className="flex items-center justify-between p-2 bg-white rounded border border-slate-200">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900 line-clamp-1">
+                          {mcq.question || `MCQ ${idx + 1}`}
+                        </p>
+                      </div>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 ml-2" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* MCQ Form */}
+            <div className="space-y-4">
+              {/* Category */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Category</label>
+                <select
+                  value={mcqFormData.categoryId}
+                  onChange={(e) => setMcqFormData({ ...mcqFormData, categoryId: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Select a category</option>
+                  {mcqCategories.map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Question */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Question *</label>
+                <Textarea
+                  placeholder="Enter the question..."
+                  value={mcqFormData.question}
+                  onChange={(e) => setMcqFormData({ ...mcqFormData, question: e.target.value })}
+                  className="min-h-[100px]"
+                  rows={4}
+                />
+              </div>
+
+              {/* Options */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Answer Options *</label>
+                <div className="space-y-3">
+                  {mcqFormData.options.map((option, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                        mcqFormData.correctAnswer === index
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {String.fromCharCode(65 + index)}
+                      </div>
+                      <Input
+                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                        value={option}
+                        onChange={(e) => updateMcqOption(index, e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant={mcqFormData.correctAnswer === index ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setMcqFormData({ ...mcqFormData, correctAnswer: index })}
+                        className={mcqFormData.correctAnswer === index ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                      >
+                        {mcqFormData.correctAnswer === index ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <XCircle className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-2">Click the checkmark to mark the correct answer</p>
+              </div>
+
+              {/* Explanation */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Explanation (Optional)</label>
+                <Textarea
+                  placeholder="Explain why this is the correct answer..."
+                  value={mcqFormData.explanation}
+                  onChange={(e) => setMcqFormData({ ...mcqFormData, explanation: e.target.value })}
+                  className="min-h-[80px]"
+                  rows={4}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex items-center justify-between">
+            <div className="text-sm text-slate-600">
+              {createdMcqs.length > 0 && (
+                <span className="text-emerald-600 font-medium">
+                  {createdMcqs.length} MCQ{createdMcqs.length !== 1 ? 's' : ''} created
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleCloseMcqDialog}
+              >
+                Done
+              </Button>
+              <Button
+                onClick={handleCreateMcq}
+                disabled={createMcqMutation.isPending}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600"
+              >
+                {createMcqMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add MCQ
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
