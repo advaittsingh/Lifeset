@@ -520,81 +520,6 @@ export default function CreateCurrentAffairPage() {
                 <p className="text-xs text-slate-600 mt-2 font-medium">Select the language of the article content</p>
               </div>
 
-              {/* Description (Max 60 words) */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                  Description * (Max 60 words)
-                </label>
-                <RichTextEditor
-                  value={formData.description}
-                  onChange={(value) => {
-                    // Limit to 60 words
-                    const wordCount = getWordCount(value);
-                    if (wordCount > 60) {
-                      // Truncate to 60 words
-                      const parser = new DOMParser();
-                      const doc = parser.parseFromString(value, 'text/html');
-                      const plainText = doc.body.textContent || doc.body.innerText || '';
-                      const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
-                      
-                      if (words.length > 60) {
-                        const truncatedWords = words.slice(0, 60);
-                        const truncatedText = truncatedWords.join(' ');
-                        
-                        // If original had HTML, try to preserve structure by replacing text content
-                        // Otherwise, just use the truncated plain text
-                        let truncatedValue = value;
-                        if (value.includes('<')) {
-                          // Find the text content in the HTML and replace it
-                          const body = doc.body;
-                          if (body) {
-                            body.textContent = truncatedText;
-                            truncatedValue = body.innerHTML || truncatedText;
-                          } else {
-                            truncatedValue = truncatedText;
-                          }
-                        } else {
-                          truncatedValue = truncatedText;
-                        }
-                        
-                        setFormData({ ...formData, description: truncatedValue });
-                        showToast('Description limited to 60 words', 'info');
-                      } else {
-                        setFormData({ ...formData, description: value });
-                      }
-                    } else {
-                      setFormData({ ...formData, description: value });
-                    }
-                  }}
-                  placeholder="Write a brief description (max 60 words) with full formatting options..."
-                  minHeight="200px"
-                  className="mt-1"
-                />
-                <div className="mt-2 flex items-center justify-between">
-                  <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
-                    {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
-                  </p>
-                  {isDescriptionValid && (
-                    <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Full Article */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
-                <RichTextEditor
-                  value={formData.fullArticle}
-                  onChange={(value) => setFormData({ ...formData, fullArticle: value })}
-                  placeholder="Write the complete article content with full formatting options..."
-                  minHeight="400px"
-                  className="mt-1"
-                />
-                <p className="text-xs text-slate-500 mt-2">
-                  Complete article content (optional). Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.).
-                </p>
-              </div>
-
               {/* Category Selection */}
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-2 block">Category *</label>
@@ -798,6 +723,81 @@ export default function CreateCurrentAffairPage() {
                     </div>
                   </details>
                 </div>
+              </div>
+
+              {/* Description (Max 60 words) */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                  Description * (Max 60 words)
+                </label>
+                <RichTextEditor
+                  value={formData.description}
+                  onChange={(value) => {
+                    // Limit to 60 words
+                    const wordCount = getWordCount(value);
+                    if (wordCount > 60) {
+                      // Truncate to 60 words
+                      const parser = new DOMParser();
+                      const doc = parser.parseFromString(value, 'text/html');
+                      const plainText = doc.body.textContent || doc.body.innerText || '';
+                      const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
+                      
+                      if (words.length > 60) {
+                        const truncatedWords = words.slice(0, 60);
+                        const truncatedText = truncatedWords.join(' ');
+                        
+                        // If original had HTML, try to preserve structure by replacing text content
+                        // Otherwise, just use the truncated plain text
+                        let truncatedValue = value;
+                        if (value.includes('<')) {
+                          // Find the text content in the HTML and replace it
+                          const body = doc.body;
+                          if (body) {
+                            body.textContent = truncatedText;
+                            truncatedValue = body.innerHTML || truncatedText;
+                          } else {
+                            truncatedValue = truncatedText;
+                          }
+                        } else {
+                          truncatedValue = truncatedText;
+                        }
+                        
+                        setFormData({ ...formData, description: truncatedValue });
+                        showToast('Description limited to 60 words', 'info');
+                      } else {
+                        setFormData({ ...formData, description: value });
+                      }
+                    } else {
+                      setFormData({ ...formData, description: value });
+                    }
+                  }}
+                  placeholder="Write a brief description (max 60 words) with full formatting options..."
+                  minHeight="200px"
+                  className="mt-1"
+                />
+                <div className="mt-2 flex items-center justify-between">
+                  <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
+                    {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
+                  </p>
+                  {isDescriptionValid && (
+                    <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Full Article */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
+                <RichTextEditor
+                  value={formData.fullArticle}
+                  onChange={(value) => setFormData({ ...formData, fullArticle: value })}
+                  placeholder="Write the complete article content with full formatting options..."
+                  minHeight="400px"
+                  className="mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  Complete article content (optional). Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.).
+                </p>
               </div>
 
               {/* Action Buttons */}
