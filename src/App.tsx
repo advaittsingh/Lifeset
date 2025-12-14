@@ -66,13 +66,34 @@ import { useEffect } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 export default function App() {
-  const { checkAuth } = useAuthStore();
+  const { checkAuth, isTokenExpired } = useAuthStore();
 
   useEffect(() => {
     // Check if user is already authenticated on mount
     // This ensures the token is loaded from localStorage into the store
     checkAuth();
-  }, [checkAuth]);
+    
+    // Set up periodic token expiration check (every 5 minutes)
+    const tokenCheckInterval = setInterval(() => {
+      const token = localStorage.getItem('token');
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (token && isTokenExpired()) {
+        console.log('Token expired, attempting automatic refresh...');
+        // The request interceptor will handle the refresh automatically
+        // We just need to trigger a check
+        if (refreshToken) {
+          // Token will be refreshed on next API call
+          console.log('Refresh token available, will refresh on next API call');
+        } else {
+          console.warn('No refresh token available, user will need to login again');
+        }
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+    
+    return () => {
+      clearInterval(tokenCheckInterval);
+    };
+  }, [checkAuth, isTokenExpired]);
 
   return (
     <BrowserRouter>

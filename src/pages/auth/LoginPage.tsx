@@ -32,16 +32,18 @@ export default function LoginPage() {
       
       // Try multiple possible token field names
       const token = loginData.accessToken || loginData.token || loginData.access_token;
+      const refreshToken = loginData.refreshToken || loginData.refresh_token;
       
       if (loginData.user && token) {
         console.log('Login successful, storing token:', {
           hasUser: !!loginData.user,
           hasToken: !!token,
+          hasRefreshToken: !!refreshToken,
           tokenLength: token.length,
           tokenPreview: token.substring(0, 20) + '...',
         });
         
-        await setAuth(loginData.user, token);
+        await setAuth(loginData.user, token, refreshToken);
         
         // Verify token was stored
         const storedToken = localStorage.getItem('token');

@@ -49,14 +49,23 @@ export const apiClient = axios.create({
 // Expose token debugging utility to window for browser console access
 if (typeof window !== 'undefined') {
   (window as any).debugAuth = () => {
-    const storeToken = useAuthStore.getState().token;
+    const authStore = useAuthStore.getState();
+    const storeToken = authStore.token;
     const localToken = localStorage.getItem('token');
+    const refreshToken = authStore.refreshToken || localStorage.getItem('refreshToken');
     const user = localStorage.getItem('user');
+    const expiration = authStore.getTokenExpiration();
+    const isExpired = authStore.isTokenExpired();
+    const timeUntilExpiry = expiration ? Math.max(0, expiration - Date.now()) : null;
     
     console.log('=== Auth Debug Info ===');
     console.log('Store Token:', storeToken ? `${storeToken.substring(0, 20)}... (${storeToken.length} chars)` : 'Not found');
     console.log('LocalStorage Token:', localToken ? `${localToken.substring(0, 20)}... (${localToken.length} chars)` : 'Not found');
+    console.log('Refresh Token:', refreshToken ? `${refreshToken.substring(0, 20)}... (${refreshToken.length} chars)` : 'Not found');
     console.log('User:', user ? JSON.parse(user) : 'Not found');
+    console.log('Token Expired:', isExpired);
+    console.log('Token Expiration:', expiration ? new Date(expiration).toLocaleString() : 'Unknown');
+    console.log('Time Until Expiry:', timeUntilExpiry ? `${Math.round(timeUntilExpiry / 1000 / 60)} minutes` : 'Unknown');
     console.log('API Base URL:', API_BASE_URL);
     console.log('Current URL:', window.location.href);
     console.log('=====================');
@@ -64,7 +73,11 @@ if (typeof window !== 'undefined') {
     return {
       storeToken: storeToken ? `${storeToken.substring(0, 20)}...` : null,
       localToken: localToken ? `${localToken.substring(0, 20)}...` : null,
+      refreshToken: refreshToken ? `${refreshToken.substring(0, 20)}...` : null,
       user: user ? JSON.parse(user) : null,
+      isExpired,
+      expiration: expiration ? new Date(expiration).toISOString() : null,
+      timeUntilExpiry: timeUntilExpiry ? Math.round(timeUntilExpiry / 1000 / 60) : null,
       apiBaseUrl: API_BASE_URL,
     };
   };
@@ -102,9 +115,102 @@ if (typeof window !== 'undefined') {
   };
 }
 
-apiClient.interceptors.request.use((config) => {
+// Token refresh function
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (value?: any) => void; reject: (reason?: any) => void }> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+const refreshAccessToken = async (): Promise<string | null> => {
+  const refreshToken = useAuthStore.getState().refreshToken || localStorage.getItem('refreshToken');
+  
+  if (!refreshToken) {
+    console.warn('No refresh token available');
+    return null;
+  }
+
+  try {
+    // Try to refresh the token
+    const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+      refreshToken,
+    });
+
+    const apiResponse = response.data;
+    const refreshData = apiResponse.data || apiResponse;
+    const newToken = refreshData.accessToken || refreshData.token || refreshData.access_token;
+    const newRefreshToken = refreshData.refreshToken || refreshData.refresh_token;
+
+    if (newToken) {
+      useAuthStore.getState().setToken(newToken);
+      if (newRefreshToken) {
+        localStorage.setItem('refreshToken', newRefreshToken);
+        useAuthStore.getState().setAuth(
+          useAuthStore.getState().user,
+          newToken,
+          newRefreshToken
+        );
+      }
+      console.log('Token refreshed successfully');
+      return newToken;
+    }
+  } catch (error: any) {
+    console.error('Token refresh failed:', error);
+    // If refresh fails, logout user
+    if (window.location.pathname !== '/login') {
+      useAuthStore.getState().logout();
+      window.location.href = '/login';
+    }
+    return null;
+  }
+
+  return null;
+};
+
+apiClient.interceptors.request.use(async (config) => {
+  // Skip token check for login and refresh endpoints
+  if (config.url?.includes('/auth/login') || config.url?.includes('/auth/refresh')) {
+    return config;
+  }
+
+  // Check if token is expired or about to expire
+  const authStore = useAuthStore.getState();
+  if (authStore.isTokenExpired()) {
+    console.log('Token expired or about to expire, attempting refresh...');
+    
+    if (!isRefreshing) {
+      isRefreshing = true;
+      const newToken = await refreshAccessToken();
+      isRefreshing = false;
+      processQueue(null, newToken);
+      
+      if (newToken) {
+        config.headers.Authorization = `Bearer ${newToken}`;
+        return config;
+      }
+    } else {
+      // If already refreshing, wait for it to complete
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then((token) => {
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      });
+    }
+  }
+
   // Get token from store first, fallback to localStorage if store is not initialized
-  const storeToken = useAuthStore.getState().token;
+  const storeToken = authStore.token;
   const localToken = localStorage.getItem('token');
   const token = storeToken || localToken;
   
@@ -117,13 +223,15 @@ apiClient.interceptors.request.use((config) => {
       
       // Debug logging (only in development)
       if (import.meta.env.DEV) {
+        const expiration = authStore.getTokenExpiration();
+        const timeUntilExpiry = expiration ? Math.max(0, expiration - Date.now()) : null;
         console.log('API Request:', {
           url: config.url,
           method: config.method,
           hasToken: !!cleanToken,
           tokenLength: cleanToken.length,
           tokenPreview: cleanToken.substring(0, 20) + '...',
-          authHeader: config.headers.Authorization?.substring(0, 30) + '...',
+          timeUntilExpiry: timeUntilExpiry ? `${Math.round(timeUntilExpiry / 1000 / 60)} minutes` : 'unknown',
         });
       }
     } else {
@@ -174,21 +282,77 @@ apiClient.interceptors.response.use(
       
       // Handle 401 Unauthorized - token expired or invalid
       if (error.response.status === 401) {
-        const currentToken = useAuthStore.getState().token || localStorage.getItem('token');
-        console.error('401 Unauthorized - Authentication failed:', {
-          hasToken: !!currentToken,
-          tokenLength: currentToken?.length || 0,
-          authHeader: error.config?.headers?.Authorization ? 'Present' : 'Missing',
-          url: error.config?.url,
-        });
+        const originalRequest = error.config;
+        const authStore = useAuthStore.getState();
+        const refreshToken = authStore.refreshToken || localStorage.getItem('refreshToken');
         
-        // Don't redirect if already on login page
-        if (window.location.pathname !== '/login') {
-          const authStore = useAuthStore.getState();
-          // Clear auth state
-          authStore.logout();
-          // Redirect to login
-          window.location.href = '/login';
+        // Don't try to refresh if this is already a refresh request or login request
+        if (
+          originalRequest?.url?.includes('/auth/refresh') ||
+          originalRequest?.url?.includes('/auth/login')
+        ) {
+          // Refresh failed or login failed, redirect to login
+          if (window.location.pathname !== '/login') {
+            authStore.logout();
+            window.location.href = '/login';
+          }
+          return Promise.reject(error);
+        }
+
+        // Try to refresh token if we have a refresh token
+        if (refreshToken && !isRefreshing) {
+          isRefreshing = true;
+          
+          try {
+            const newToken = await refreshAccessToken();
+            isRefreshing = false;
+            processQueue(null, newToken);
+            
+            if (newToken && originalRequest) {
+              // Retry the original request with new token
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              return apiClient(originalRequest);
+            }
+          } catch (refreshError) {
+            isRefreshing = false;
+            processQueue(refreshError, null);
+            
+            // Refresh failed, logout and redirect
+            if (window.location.pathname !== '/login') {
+              authStore.logout();
+              window.location.href = '/login';
+            }
+            return Promise.reject(refreshError);
+          }
+        } else if (isRefreshing) {
+          // Already refreshing, queue this request
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          })
+            .then((token) => {
+              if (token && originalRequest) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+                return apiClient(originalRequest);
+              }
+              return Promise.reject(error);
+            })
+            .catch((err) => {
+              return Promise.reject(err);
+            });
+        } else {
+          // No refresh token available, logout
+          const currentToken = authStore.token || localStorage.getItem('token');
+          console.error('401 Unauthorized - No refresh token available:', {
+            hasToken: !!currentToken,
+            tokenLength: currentToken?.length || 0,
+            authHeader: originalRequest?.headers?.Authorization ? 'Present' : 'Missing',
+            url: originalRequest?.url,
+          });
+          
+          if (window.location.pathname !== '/login') {
+            authStore.logout();
+            window.location.href = '/login';
+          }
         }
       }
     }
