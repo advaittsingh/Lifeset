@@ -31,6 +31,7 @@ import CreateDailyDigestPage from './pages/cms/CreateDailyDigestPage';
 import CollegeEventsPage from './pages/cms/CollegeEventsPage';
 import CreateCollegeEventPage from './pages/cms/CreateCollegeEventPage';
 import KnowYourselfPage from './pages/cms/KnowYourselfPage';
+import CreateKnowYourselfPage from './pages/cms/CreateKnowYourselfPage';
 import StudentsCommunityPage from './pages/cms/StudentsCommunityPage';
 import GovtVacanciesPage from './pages/cms/GovtVacanciesPage';
 
@@ -363,6 +364,22 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <KnowYourselfPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/know-yourself/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateKnowYourselfPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/know-yourself/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateKnowYourselfPage />
             </ProtectedRoute>
           }
         />
