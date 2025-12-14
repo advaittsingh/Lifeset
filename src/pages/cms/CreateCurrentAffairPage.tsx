@@ -336,10 +336,6 @@ export default function CreateCurrentAffairPage() {
 
   // MCQ Dialog handlers
   const handleOpenMcqDialog = () => {
-    if (!formData.articleId && !id) {
-      showToast('Please create the article first', 'error');
-      return;
-    }
     // Pre-fill MCQ category if available
     if (formData.categoryId) {
       const matchingCategory = mcqCategories.find((cat: any) => 
@@ -424,6 +420,10 @@ export default function CreateCurrentAffairPage() {
     if (mcqFormData.correctAnswer < 0 || mcqFormData.correctAnswer >= mcqFormData.options.length) {
       showToast('Please select a valid correct answer', 'error');
       return;
+    }
+    // Warn if article not created yet, but still allow creating MCQ
+    if (!formData.articleId && !id) {
+      showToast('Note: MCQ will be created without article link. Create article first to link them.', 'info');
     }
     createMcqMutation.mutate(mcqFormData);
   };
@@ -788,7 +788,6 @@ export default function CreateCurrentAffairPage() {
                     type="button"
                     variant="outline"
                     onClick={handleOpenMcqDialog}
-                    disabled={!formData.articleId && !id}
                     className="flex-1"
                   >
                     <HelpCircle className="h-4 w-4 mr-2" />
@@ -1054,6 +1053,14 @@ export default function CreateCurrentAffairPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-6">
+            {/* Warning if article not created */}
+            {!formData.articleId && !id && (
+              <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> The article hasn't been created yet. MCQs will be created without an article link. Create the article first to automatically link them.
+                </p>
+              </div>
+            )}
             {/* Created MCQs List */}
             {createdMcqs.length > 0 && (
               <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
