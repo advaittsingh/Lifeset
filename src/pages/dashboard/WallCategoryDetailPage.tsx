@@ -40,30 +40,35 @@ export default function WallCategoryDetailPage() {
     queryFn: async () => {
       if (!id) return { data: [] };
       try {
-        const data = await postsApi.getWallCategories({ parentId: id });
-        const categories = Array.isArray(data) ? data : (data?.data || []);
+        // Try to fetch with parentId parameter first
+        let data = await postsApi.getWallCategories({ parentId: id });
+        let categories = Array.isArray(data) ? data : (data?.data || []);
         
-        console.log('Fetched categories for parentId:', id, categories);
+        // If API doesn't filter properly, fetch all categories and filter client-side
+        if (categories.length === 0 || !categories.some((cat: any) => {
+          const catParentId = cat.parentCategoryId || cat.metadata?.parentCategoryId || cat.parentCategory?.id;
+          return String(catParentId) === String(id);
+        })) {
+          // Fallback: fetch all and filter client-side
+          const allData = await postsApi.getWallCategories();
+          const allCategories = Array.isArray(allData) ? allData : (allData?.data || []);
+          categories = allCategories;
+        }
         
         // Client-side filtering to ensure we only get sub-categories for this parent
-        // Check parentCategoryId at root level, metadata, or parentCategory.id
         const filtered = categories.filter((cat: any) => {
-          const catParentId = cat.parentCategoryId !== undefined ? cat.parentCategoryId : 
-                             (cat.metadata?.parentCategoryId !== undefined ? cat.metadata.parentCategoryId : 
-                             (cat.parentCategory?.id !== undefined ? cat.parentCategory.id : null));
+          const catParentId = cat.parentCategoryId || cat.metadata?.parentCategoryId || cat.parentCategory?.id;
           
-          // Also check for null/undefined/empty string - these should be excluded
+          // Sub-category must have a parentCategoryId that matches this category's id
           const isSubCategory = catParentId !== null && 
                                catParentId !== undefined && 
                                catParentId !== '' && 
+                               catParentId !== false &&
+                               catParentId !== 0 &&
                                String(catParentId) === String(id);
-          
-          console.log('Category:', cat.name, 'parentCategoryId:', catParentId, 'matches:', isSubCategory);
           
           return isSubCategory;
         });
-        
-        console.log('Filtered sub-categories:', filtered);
         
         return { data: filtered };
       } catch (error: any) {
@@ -77,13 +82,18 @@ export default function WallCategoryDetailPage() {
   const subCategories = subCategoriesData?.data || [];
 
   const createSubCategoryMutation = useMutation({
-    mutationFn: (data: typeof subCategoryFormData) => postsApi.createWallCategory({
-      name: data.name,
-      description: data.description || undefined,
-      categoryFor: selectedCategory?.metadata?.categoryFor || selectedCategory?.categoryFor || undefined,
-      parentCategoryId: id!,
-      isActive: data.status === 'active',
-    }),
+    mutationFn: (data: typeof subCategoryFormData) => {
+      if (!id) {
+        throw new Error('Parent category ID is required');
+      }
+      return postsApi.createWallCategory({
+        name: data.name,
+        description: data.description || undefined,
+        categoryFor: selectedCategory?.metadata?.categoryFor || selectedCategory?.categoryFor || undefined,
+        parentCategoryId: id, // Ensure parentCategoryId is set to the parent's ID
+        isActive: data.status === 'active',
+      });
+    },
     onSuccess: async () => {
       showToast('Sub-category created successfully', 'success');
       setIsCreateSubCategoryDialogOpen(false);

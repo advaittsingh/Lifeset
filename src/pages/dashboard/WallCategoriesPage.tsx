@@ -28,28 +28,29 @@ export default function WallCategoriesPage() {
     queryKey: ['wall-categories', 'parents', searchTerm],
     queryFn: async () => {
       try {
-        // Default API call returns only parent categories (parentCategoryId is null)
-        const data = await postsApi.getWallCategories();
-        const allCategories = Array.isArray(data) ? data : (data?.data || []);
+        // Try to get only parent categories first
+        let data = await postsApi.getWallCategories();
+        let allCategories = Array.isArray(data) ? data : (data?.data || []);
         
-        // Client-side filtering to ensure we only show parent categories
-        // A category is a parent if parentCategoryId is null, undefined, or empty
-        const parentCategories = allCategories.filter((cat: any) => {
-          const parentId = cat.parentCategoryId !== undefined ? cat.parentCategoryId : 
-                           (cat.metadata?.parentCategoryId !== undefined ? cat.metadata.parentCategoryId : 
-                           (cat.parentCategory?.id !== undefined ? cat.parentCategory.id : null));
-          
-          // Parent categories have null/undefined/empty parentCategoryId
-          return parentId === null || parentId === undefined || parentId === '';
+        // If API doesn't filter properly, fetch all and filter client-side
+        // Check if we got sub-categories mixed in
+        const hasSubCategories = allCategories.some((cat: any) => {
+          const parentId = cat.parentCategoryId || cat.metadata?.parentCategoryId || cat.parentCategory?.id;
+          return parentId !== null && parentId !== undefined && parentId !== '';
         });
         
-        console.log('All categories from API:', allCategories);
-        console.log('Filtered parent categories:', parentCategories);
+        // If sub-categories are present, filter them out
+        if (hasSubCategories) {
+          allCategories = allCategories.filter((cat: any) => {
+            const parentId = cat.parentCategoryId || cat.metadata?.parentCategoryId || cat.parentCategory?.id;
+            // Parent categories have null/undefined/empty parentCategoryId
+            return parentId === null || parentId === undefined || parentId === '' || parentId === false || parentId === 0;
+          });
+        }
         
-        return { data: parentCategories };
+        return { data: allCategories };
       } catch (error: any) {
         console.error('Error fetching wall categories:', error);
-        // Log detailed error information
         if (error?.response) {
           console.error('Error response:', {
             status: error.response.status,
@@ -58,10 +59,10 @@ export default function WallCategoriesPage() {
             headers: error.response.headers
           });
         }
-        throw error; // Re-throw to let React Query handle it
+        throw error;
       }
     },
-    retry: 1, // Only retry once
+    retry: 1,
   });
 
   const topLevelCategories = categoriesData?.data || [];
