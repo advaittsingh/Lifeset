@@ -255,7 +255,7 @@ apiClient.interceptors.request.use(async (config) => {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     // Log error for debugging
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
       console.error('Network Error:', {
