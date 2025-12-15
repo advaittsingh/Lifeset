@@ -174,7 +174,9 @@ export const cmsApi = {
     return response.data.data || response.data;
   },
   getChaptersBySubCategory: async (subCategoryId: string): Promise<Chapter[]> => {
-    const response = await apiClient.get(`/admin/cms/sub-categories/${subCategoryId}/chapters`);
+    const response = await apiClient.get('/admin/cms/chapters', {
+      params: { subCategoryId },
+    });
     const result = response.data?.data ?? response.data;
     return Array.isArray(result) ? (result as Chapter[]) : (result?.data ?? []);
   },
