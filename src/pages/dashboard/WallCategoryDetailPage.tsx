@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { ArrowLeft, Plus, Loader2, Tag, Trash2 } from 'lucide-react';
-import { postsApi } from '../../services/api/posts';
+import { ArrowLeft, Plus, Loader2, Tag, Trash2, Pencil } from 'lucide-react';
+import { postsApi, WallCategory } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function WallCategoryDetailPage() {
@@ -16,65 +16,47 @@ export default function WallCategoryDetailPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateSubCategoryDialogOpen, setIsCreateSubCategoryDialogOpen] = useState(false);
+  const [isEditSubCategoryDialogOpen, setIsEditSubCategoryDialogOpen] = useState(false);
+  const [editingSubCategory, setEditingSubCategory] = useState<WallCategory | null>(null);
   const [subCategoryFormData, setSubCategoryFormData] = useState({
     name: '',
     description: '',
     status: 'active'
   });
+  const [editSubCategoryFormData, setEditSubCategoryFormData] = useState({
+    name: '',
+    description: '',
+    status: 'active',
+  });
 
   // Fetch parent category details
-  const { data: categoriesData } = useQuery({
+  const { data: categoriesData } = useQuery<WallCategory[]>({
     queryKey: ['wall-categories', 'parents'],
     queryFn: async () => {
-      const data = await postsApi.getWallCategories();
-      return Array.isArray(data) ? { data } : data;
+      return postsApi.getWallCategories();
     },
   });
 
-  const allCategories = categoriesData?.data || [];
-  const selectedCategory = allCategories.find((cat: any) => cat.id === id);
+  const allCategories: WallCategory[] = categoriesData || [];
+  const selectedCategory = allCategories.find((cat: WallCategory) => cat.id === id);
 
   // Fetch sub-categories for this category
-  const { data: subCategoriesData, isLoading: isLoadingSubCategories } = useQuery({
+  const { data: subCategoriesData, isLoading: isLoadingSubCategories } = useQuery<WallCategory[]>({
     queryKey: ['wall-categories', 'sub-categories', id],
     queryFn: async () => {
-      if (!id) return { data: [] };
+      if (!id) return [];
       try {
-        // Backend should return only sub-categories for this parent (WHERE parentCategoryId = id)
-        const data = await postsApi.getWallCategories({ parentId: id });
-        const allCategories = Array.isArray(data) ? data : (data?.data || []);
-        
-        console.log('Raw sub-categories API response for parentId:', id, allCategories);
-        
-        // Client-side filtering as safety measure - ensure only sub-categories for this parent
-        const subCategories = allCategories.filter((cat: any) => {
-          // Check parentCategoryId at root level (backend should return this)
-          const catParentId = cat.parentCategoryId;
-          
-          // Sub-category must have parentCategoryId matching this category's id
-          const isSubCategory = catParentId !== null && 
-                               catParentId !== undefined && 
-                               String(catParentId) === String(id);
-          
-          if (!isSubCategory && catParentId !== null && catParentId !== undefined) {
-            console.log('Filtered out category (wrong parent):', cat.name, 'parentCategoryId:', catParentId, 'expected:', id);
-          }
-          
-          return isSubCategory;
-        });
-        
-        console.log('Filtered sub-categories:', subCategories);
-        
-        return { data: subCategories };
+        // Backend returns only sub-categories for this parent
+        return postsApi.getWallSubCategories(id);
       } catch (error: any) {
         console.error('Error fetching sub-categories:', error);
-        return { data: [] };
+        return [];
       }
     },
     enabled: !!id,
   });
 
-  const subCategories = subCategoriesData?.data || [];
+  const subCategories: WallCategory[] = subCategoriesData || [];
 
   const createSubCategoryMutation = useMutation({
     mutationFn: (data: typeof subCategoryFormData) => {
@@ -84,7 +66,7 @@ export default function WallCategoryDetailPage() {
       return postsApi.createWallCategory({
         name: data.name,
         description: data.description || undefined,
-        categoryFor: selectedCategory?.metadata?.categoryFor || selectedCategory?.categoryFor || undefined,
+        categoryFor: selectedCategory?.categoryFor || selectedCategory?.metadata?.categoryFor || undefined,
         parentCategoryId: id, // Ensure parentCategoryId is set to the parent's ID
         isActive: data.status === 'active',
       });
@@ -101,7 +83,12 @@ export default function WallCategoryDetailPage() {
     },
     onError: (error: any) => {
       console.error('Error creating sub-category:', error);
-      showToast('Failed to create sub-category', 'error');
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        'Failed to create sub-category';
+      showToast(message, 'error');
     },
   });
 
@@ -115,18 +102,23 @@ export default function WallCategoryDetailPage() {
       // Also refetch parents to update subCategoryCount
       await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
     },
-    onError: () => {
-      showToast('Failed to delete sub-category', 'error');
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        'Failed to delete sub-category';
+      showToast(message, 'error');
     },
   });
 
-  const handleDeleteSubCategory = (subCategory: any) => {
+  const handleDeleteSubCategory = (subCategory: WallCategory) => {
     const hasPosts = (subCategory.postCount || 0) > 0;
     
     let message = `Are you sure you want to delete "${subCategory.name}"?`;
     if (hasPosts) {
       message += `\n\n⚠️ This sub-category has ${subCategory.postCount} post${subCategory.postCount === 1 ? '' : 's'}. `;
-      message += '\n\nDeleting this sub-category may affect associated content.';
+      message += '\n\nIf this sub-category has posts, the deletion will fail and nothing will be removed.';
     }
     
     if (window.confirm(message)) {
@@ -140,6 +132,65 @@ export default function WallCategoryDetailPage() {
       return;
     }
     createSubCategoryMutation.mutate(subCategoryFormData);
+  };
+
+  const editSubCategoryMutation = useMutation({
+    mutationFn: async (payload: { id: string; updates: Partial<WallCategory> }) => {
+      return postsApi.updateWallCategory(payload.id, payload.updates);
+    },
+    onSuccess: async () => {
+      showToast('Sub-category updated successfully', 'success');
+      setIsEditSubCategoryDialogOpen(false);
+      setEditingSubCategory(null);
+      // Refetch sub-categories and parent counts
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'sub-categories', id] });
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        'Failed to update sub-category';
+      showToast(message, 'error');
+    },
+  });
+
+  const openEditSubCategoryDialog = (subCategory: WallCategory) => {
+    setEditingSubCategory(subCategory);
+    setEditSubCategoryFormData({
+      name: subCategory.name || '',
+      description: subCategory.description || '',
+      status: subCategory.isActive ? 'active' : 'inactive',
+    });
+    setIsEditSubCategoryDialogOpen(true);
+  };
+
+  const handleEditSubCategorySave = () => {
+    if (!editingSubCategory) return;
+    if (!editSubCategoryFormData.name.trim()) {
+      showToast('Please enter a sub-category name', 'error');
+      return;
+    }
+
+    const updates: Partial<WallCategory> = {};
+    if (editSubCategoryFormData.name !== editingSubCategory.name) {
+      updates.name = editSubCategoryFormData.name.trim();
+    }
+    if ((editSubCategoryFormData.description || '') !== (editingSubCategory.description || '')) {
+      updates.description = editSubCategoryFormData.description || '';
+    }
+    const newIsActive = editSubCategoryFormData.status === 'active';
+    if (newIsActive !== editingSubCategory.isActive) {
+      updates.isActive = newIsActive;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      showToast('No changes to save', 'info');
+      return;
+    }
+
+    editSubCategoryMutation.mutate({ id: editingSubCategory.id, updates });
   };
 
   if (!selectedCategory) {
@@ -170,8 +221,12 @@ export default function WallCategoryDetailPage() {
               Back to Categories
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">{selectedCategory.name}</h1>
-              <p className="text-slate-600 mt-1">Manage sub-categories for this category</p>
+              <h1 className="text-3xl font-bold text-slate-900">
+                {selectedCategory.name} &gt; Sub-categories
+              </h1>
+              <p className="text-slate-600 mt-1">
+                Manage sub-categories for this parent category
+              </p>
             </div>
           </div>
           <Button
@@ -204,9 +259,9 @@ export default function WallCategoryDetailPage() {
                 <p className="text-sm text-slate-600 mb-2">
                   {selectedCategory.description || 'No description'}
                 </p>
-                {selectedCategory.metadata?.categoryFor && (
+                {(selectedCategory.categoryFor || selectedCategory.metadata?.categoryFor) && (
                   <p className="text-xs text-slate-500 mb-1">
-                    For: {selectedCategory.metadata.categoryFor}
+                    For: {selectedCategory.categoryFor || selectedCategory.metadata?.categoryFor}
                   </p>
                 )}
                 <div className="flex items-center gap-4 mt-2">
@@ -250,7 +305,7 @@ export default function WallCategoryDetailPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {subCategories.map((subCategory: any) => (
+                {subCategories.map((subCategory: WallCategory) => (
                   <div
                     key={subCategory.id}
                     className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
@@ -272,20 +327,34 @@ export default function WallCategoryDetailPage() {
                       <p className="text-sm text-slate-600 mt-1">
                         {subCategory.description || 'No description'}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {subCategory.postCount || 0} posts
-                      </p>
+                      <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
+                        <span>{subCategory.postCount || 0} posts</span>
+                        <span>Created: {new Date(subCategory.createdAt).toLocaleString()}</span>
+                        <span>Updated: {new Date(subCategory.updatedAt).toLocaleString()}</span>
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteSubCategory(subCategory)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      disabled={deleteSubCategoryMutation.isPending}
-                      title="Delete sub-category"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditSubCategoryDialog(subCategory)}
+                        className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        disabled={editSubCategoryMutation.isPending}
+                        title="Edit sub-category"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteSubCategory(subCategory)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={deleteSubCategoryMutation.isPending}
+                        title="Delete sub-category"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -353,6 +422,91 @@ export default function WallCategoryDetailPage() {
                   </>
                 ) : (
                   'Create Sub-Category'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Sub-Category Dialog */}
+        <Dialog open={isEditSubCategoryDialogOpen} onOpenChange={setIsEditSubCategoryDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Sub-Category</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Parent Category</label>
+                <Input
+                  value={selectedCategory.name}
+                  disabled
+                  className="mt-1 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
+                <Input
+                  placeholder="Enter sub-category name"
+                  value={editSubCategoryFormData.name}
+                  onChange={(e) =>
+                    setEditSubCategoryFormData({ ...editSubCategoryFormData, name: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
+                <Input
+                  placeholder="Enter sub-category description (optional)"
+                  value={editSubCategoryFormData.description}
+                  onChange={(e) =>
+                    setEditSubCategoryFormData({
+                      ...editSubCategoryFormData,
+                      description: e.target.value,
+                    })
+                  }
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Status *</label>
+                <select
+                  value={editSubCategoryFormData.status}
+                  onChange={(e) =>
+                    setEditSubCategoryFormData({
+                      ...editSubCategoryFormData,
+                      status: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditSubCategoryDialogOpen(false);
+                  setEditingSubCategory(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleEditSubCategorySave}
+                className="bg-blue-600"
+                disabled={editSubCategoryMutation.isPending}
+              >
+                {editSubCategoryMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
                 )}
               </Button>
             </DialogFooter>

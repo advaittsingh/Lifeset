@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { FileText, ArrowLeft, Plus, Search, Loader2, Tag, ChevronRight, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
-import { postsApi } from '../../services/api/posts';
+import { FileText, ArrowLeft, Plus, Search, Loader2, Tag, ChevronRight, AlertCircle, RefreshCw, Trash2, Pencil } from 'lucide-react';
+import { postsApi, WallCategory } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function WallCategoriesPage() {
@@ -16,42 +16,28 @@ export default function WallCategoriesPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<WallCategory | null>(null);
   const [formData, setFormData] = useState({ 
     categoryFor: '', 
     name: '', 
     description: '',
     status: 'active' 
   });
+  const [editFormData, setEditFormData] = useState({
+    categoryFor: '',
+    name: '',
+    description: '',
+    status: 'active',
+  });
 
   // Fetch parent categories from API
-  const { data: categoriesData, isLoading, error: categoriesError, refetch: refetchCategories } = useQuery({
+  const { data: categoriesData, isLoading, error: categoriesError, refetch: refetchCategories } = useQuery<WallCategory[]>({
     queryKey: ['wall-categories', 'parents', searchTerm],
     queryFn: async () => {
       try {
-        // Backend should return only parent categories by default (parentCategoryId IS NULL)
-        const data = await postsApi.getWallCategories();
-        const allCategories = Array.isArray(data) ? data : (data?.data || []);
-        
-        console.log('Raw API response:', allCategories);
-        
-        // Client-side filtering as safety measure - ensure only parent categories
-        const parentCategories = allCategories.filter((cat: any) => {
-          // Check parentCategoryId at root level (backend should return this)
-          const parentId = cat.parentCategoryId;
-          
-          // Parent categories have null/undefined parentCategoryId
-          const isParent = parentId === null || parentId === undefined;
-          
-          if (!isParent) {
-            console.log('Filtered out sub-category:', cat.name, 'parentCategoryId:', parentId);
-          }
-          
-          return isParent;
-        });
-        
-        console.log('Filtered parent categories:', parentCategories);
-        
-        return { data: parentCategories };
+        // Backend returns only parent categories by default (onlyParents=true)
+        return await postsApi.getWallCategories();
       } catch (error: any) {
         console.error('Error fetching wall categories:', error);
         if (error?.response) {
@@ -67,22 +53,23 @@ export default function WallCategoriesPage() {
     retry: 1,
   });
 
-  const topLevelCategories = categoriesData?.data || [];
+  const topLevelCategories: WallCategory[] = categoriesData || [];
   
   const filteredCategories = useMemo(() => {
-    return topLevelCategories.filter((cat: any) =>
+    return topLevelCategories.filter((cat: WallCategory) =>
       cat.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [topLevelCategories, searchTerm]);
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => postsApi.createWallCategory({
-      name: data.name,
-      description: data.description || undefined,
-      categoryFor: data.categoryFor || undefined,
-      parentCategoryId: null, // Top-level categories have null parent
-      isActive: data.status === 'active',
-    }),
+    mutationFn: (data: typeof formData) =>
+      postsApi.createWallCategory({
+        name: data.name,
+        description: data.description || undefined,
+        categoryFor: data.categoryFor || undefined,
+        parentCategoryId: null, // Top-level categories have null parent
+        isActive: data.status === 'active',
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
       queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
@@ -90,7 +77,14 @@ export default function WallCategoriesPage() {
       setIsCreateDialogOpen(false);
       setFormData({ categoryFor: '', name: '', description: '', status: 'active' });
     },
-    onError: () => showToast('Failed to create category', 'error'),
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        'Failed to create category';
+      showToast(message, 'error');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -100,10 +94,17 @@ export default function WallCategoriesPage() {
       queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
       showToast('Category deleted successfully', 'success');
     },
-    onError: () => showToast('Failed to delete category', 'error'),
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        'Failed to delete category';
+      showToast(message, 'error');
+    },
   });
 
-  const handleDelete = (category: any, e: React.MouseEvent) => {
+  const handleDelete = (category: WallCategory, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent navigation when clicking delete
     const hasSubCategories = (category.subCategoryCount || 0) > 0;
     const hasPosts = (category.postCount || 0) > 0;
@@ -117,7 +118,8 @@ export default function WallCategoriesPage() {
       if (hasPosts) {
         message += `⚠️ This category has ${category.postCount} post${category.postCount === 1 ? '' : 's'}. `;
       }
-      message += '\n\nDeleting this category may affect associated content.';
+      message +=
+        '\n\nIf this category or any of its sub-categories have posts, the deletion will fail and nothing will be removed.';
     }
     
     if (window.confirm(message)) {
@@ -133,7 +135,69 @@ export default function WallCategoriesPage() {
     createMutation.mutate(formData);
   };
 
-  const handleCategoryClick = (category: any) => {
+  const openEditDialog = (category: WallCategory) => {
+    setEditingCategory(category);
+    setEditFormData({
+      name: category.name || '',
+      description: category.description || '',
+      categoryFor: category.categoryFor || category.metadata?.categoryFor || '',
+      status: category.isActive ? 'active' : 'inactive',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const editMutation = useMutation({
+    mutationFn: async (payload: { id: string; updates: Partial<WallCategory> }) => {
+      return postsApi.updateWallCategory(payload.id, payload.updates);
+    },
+    onSuccess: () => {
+      showToast('Category updated successfully', 'success');
+      setIsEditDialogOpen(false);
+      setEditingCategory(null);
+      queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        'Failed to update category';
+      showToast(message, 'error');
+    },
+  });
+
+  const handleEditSave = () => {
+    if (!editingCategory) return;
+    if (!editFormData.name.trim()) {
+      showToast('Please enter a category name', 'error');
+      return;
+    }
+
+    const updates: Partial<WallCategory> = {};
+    if (editFormData.name !== editingCategory.name) updates.name = editFormData.name.trim();
+    if ((editFormData.description || '') !== (editingCategory.description || '')) {
+      updates.description = editFormData.description || '';
+    }
+
+    const effectiveCategoryFor = editingCategory.categoryFor || editingCategory.metadata?.categoryFor || '';
+    if ((editFormData.categoryFor || '') !== (effectiveCategoryFor || '')) {
+      updates.categoryFor = editFormData.categoryFor || undefined;
+    }
+
+    const newIsActive = editFormData.status === 'active';
+    if (newIsActive !== editingCategory.isActive) {
+      updates.isActive = newIsActive;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      showToast('No changes to save', 'info');
+      return;
+    }
+
+    editMutation.mutate({ id: editingCategory.id, updates });
+  };
+
+  const handleCategoryClick = (category: WallCategory) => {
     navigate(`/dashboard/wall-categories/${category.id}`);
   };
 
@@ -299,7 +363,7 @@ export default function WallCategoriesPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredCategories.map((category: any) => (
+                {filteredCategories.map((category: WallCategory) => (
                   <div
                     key={category.id}
                     className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-blue-300 transition-colors"
@@ -322,9 +386,13 @@ export default function WallCategoriesPage() {
                             {category.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </div>
-                        <p className="text-sm text-slate-600 mt-1">{category.description || 'No description'}</p>
-                        {category.metadata?.categoryFor && (
-                          <p className="text-xs text-slate-500 mt-1">For: {category.metadata.categoryFor}</p>
+                        <p className="text-sm text-slate-600 mt-1">
+                          {category.description || 'No description'}
+                        </p>
+                        {(category.categoryFor || category.metadata?.categoryFor) && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            For: {category.categoryFor || category.metadata?.categoryFor}
+                          </p>
                         )}
                         <div className="flex items-center gap-4 mt-1">
                           <p className="text-xs text-slate-500">{category.postCount || 0} posts</p>
@@ -333,18 +401,33 @@ export default function WallCategoriesPage() {
                           )}
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-slate-400" />
+                      <div className="flex items-center gap-2 text-xs text-blue-600 font-medium">
+                        <span>View sub-categories</span>
+                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleDelete(category, e)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      disabled={deleteMutation.isPending}
-                      title="Delete category"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(category)}
+                        className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        disabled={editMutation.isPending}
+                        title="Edit category"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleDelete(category, e)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={deleteMutation.isPending}
+                        title="Delete category"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -352,11 +435,11 @@ export default function WallCategoriesPage() {
           </CardContent>
         </Card>
 
-        {/* Create Dialog */}
+        {/* Create Parent Category Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Wall Category</DialogTitle>
+              <DialogTitle>Create Parent Category</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -413,6 +496,83 @@ export default function WallCategoriesPage() {
                   </>
                 ) : (
                   'Create Category'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Category Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Category</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Category For</label>
+                <Input
+                  placeholder="e.g., Posts, Events, Jobs"
+                  value={editFormData.categoryFor}
+                  onChange={(e) => setEditFormData({ ...editFormData, categoryFor: e.target.value })}
+                  className="mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Optional: what type of content this category is for
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
+                <Input
+                  placeholder="Enter category name"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
+                <Input
+                  placeholder="Enter category description (optional)"
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Status *</label>
+                <select
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingCategory(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleEditSave}
+                className="bg-blue-600"
+                disabled={editMutation.isPending}
+              >
+                {editMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
                 )}
               </Button>
             </DialogFooter>
