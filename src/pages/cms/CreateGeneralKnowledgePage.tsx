@@ -1237,109 +1237,6 @@ export default function CreateGeneralKnowledgePage() {
             </div>
           </CardContent>
         </Card>
-              <div className="space-y-4">
-                {/* Preview Container */}
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border-2 border-dashed border-slate-300">
-                  <div className="text-center mb-4">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                      Article Preview
-                    </p>
-                    <div className="w-full h-px bg-slate-200 mb-4"></div>
-                  </div>
-
-                  {/* Article Preview Card */}
-                  <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200">
-                    {(formData.imagePreview || formData.imageUrl) && (
-                      <div className="w-full h-48 bg-slate-100 overflow-hidden">
-                        <img
-                          src={formData.imagePreview || formData.imageUrl}
-                          alt="Article"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    )}
-                    <div className="p-4 space-y-3">
-                      {formData.title ? (
-                        <h3 className="text-xl font-bold text-slate-900">{formData.title}</h3>
-                      ) : (
-                        <div className="h-6 bg-slate-200 rounded animate-pulse"></div>
-                      )}
-                      {formData.description ? (
-                        <div 
-                          className="text-sm text-slate-600 line-clamp-4 article-preview-content"
-                          style={{ 
-                            overflow: 'hidden',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 4,
-                            WebkitBoxOrient: 'vertical'
-                          }}
-                          dangerouslySetInnerHTML={{ __html: formData.description }}
-                        />
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
-                          <div className="h-4 bg-slate-200 rounded animate-pulse w-5/6"></div>
-                          <div className="h-4 bg-slate-200 rounded animate-pulse w-4/6"></div>
-                        </div>
-                      )}
-                      <div className="pt-2 border-t border-slate-200">
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <BookOpen className="h-3 w-3" />
-                          <span>General Knowledge</span>
-                          <span>•</span>
-                          <span>{new Date().toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Preview Info */}
-                  <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
-                    <p className="text-xs text-blue-800">
-                      <strong>Preview Note:</strong> This is how the general knowledge article will appear to users on the platform.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Preview Status */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-sm font-medium text-slate-700">Title Status</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      formData.title
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                    }`}>
-                      {formData.title ? '✓ Title Set' : '⚠ Required'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-sm font-medium text-slate-700">Content Status</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      formData.description
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                    }`}>
-                      {formData.description ? '✓ Content Set' : '⚠ Required'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-sm font-medium text-slate-700">Image Status</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      formData.imagePreview || formData.imageUrl
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}>
-                      {formData.imagePreview || formData.imageUrl ? '✓ Image Added' : '○ Optional'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
       </div>
 
       {/* Category creation removed - use Wall Categories in dashboard instead */}
@@ -1508,7 +1405,8 @@ export default function CreateGeneralKnowledgePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+      </AdminLayout>
+    </>
   );
 }
 

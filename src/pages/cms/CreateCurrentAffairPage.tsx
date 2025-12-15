@@ -1315,7 +1315,8 @@ export default function CreateCurrentAffairPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+      </AdminLayout>
+    </>
   );
 }
 
