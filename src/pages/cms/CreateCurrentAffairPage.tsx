@@ -1090,8 +1090,6 @@ export default function CreateCurrentAffairPage() {
             </CardContent>
           </Card>
 
-        </Card>
-
         {/* Preview Section - Bottom, Side by Side */}
         <Card className="border-0 shadow-xl bg-white mt-6">
           <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-emerald-50/50 to-white">
@@ -1318,7 +1316,6 @@ export default function CreateCurrentAffairPage() {
         </DialogContent>
       </Dialog>
     </AdminLayout>
-    </>
   );
 }
 

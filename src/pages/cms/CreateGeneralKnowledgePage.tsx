@@ -1180,8 +1180,6 @@ export default function CreateGeneralKnowledgePage() {
             </CardContent>
           </Card>
 
-        </Card>
-
         {/* Preview Section - Bottom, Side by Side */}
         <Card className="border-0 shadow-xl bg-white mt-6">
           <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-emerald-50/50 to-white">
@@ -1342,7 +1340,6 @@ export default function CreateGeneralKnowledgePage() {
               </div>
             </CardContent>
           </Card>
-        </div>
       </div>
 
       {/* Category creation removed - use Wall Categories in dashboard instead */}
@@ -1512,7 +1509,6 @@ export default function CreateGeneralKnowledgePage() {
         </DialogContent>
       </Dialog>
     </AdminLayout>
-    </>
   );
 }
 
