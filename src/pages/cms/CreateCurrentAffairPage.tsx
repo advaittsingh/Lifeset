@@ -138,8 +138,7 @@ export default function CreateCurrentAffairPage() {
   };
 
   const descriptionWordCount = getWordCount(formData.description);
-  const descriptionCharCount = getCharacterCount(formData.description);
-  const isDescriptionValid = descriptionWordCount > 0 && descriptionWordCount <= 60 && descriptionCharCount <= 500;
+  const isDescriptionValid = descriptionWordCount > 0 && descriptionWordCount <= 60;
 
   // Category creation removed - use Wall Categories in dashboard instead
 
@@ -229,11 +228,6 @@ export default function CreateCurrentAffairPage() {
       const wordCount = getWordCount(data.description);
       if (wordCount > 60) {
         throw new Error(`Description must be 60 words or less (HTML tags are not counted). Current: ${wordCount} words`);
-      }
-      
-      const charCount = getCharacterCount(data.description);
-      if (charCount > 500) {
-        throw new Error(`Description must be 500 characters or less (HTML tags are not counted). Current: ${charCount} characters`);
       }
       
       const imageUrl = data.imagePreview || data.imageUrl;
@@ -421,11 +415,6 @@ export default function CreateCurrentAffairPage() {
         throw new Error(`Description must be 60 words or less (HTML tags are not counted). Current: ${wordCount} words`);
       }
       
-      const charCount = getCharacterCount(data.description);
-      if (charCount > 500) {
-        throw new Error(`Description must be 500 characters or less (HTML tags are not counted). Current: ${charCount} characters`);
-      }
-      
       const imageUrl = data.imagePreview || data.imageUrl;
       return cmsApi.updateCurrentAffair(id!, {
         title: data.title,
@@ -475,8 +464,6 @@ export default function CreateCurrentAffairPage() {
     if (!isDescriptionValid) {
       if (descriptionWordCount > 60) {
         showToast('Description must be 60 words or less', 'error');
-      } else if (descriptionCharCount > 500) {
-        showToast('Description must be 500 characters or less', 'error');
       } else {
         showToast('Description is required', 'error');
       }
@@ -503,8 +490,6 @@ export default function CreateCurrentAffairPage() {
     if (!isDescriptionValid) {
       if (descriptionWordCount > 60) {
         showToast('Description must be 60 words or less', 'error');
-      } else if (descriptionCharCount > 500) {
-        showToast('Description must be 500 characters or less', 'error');
       } else {
         showToast('Description is required', 'error');
       }
@@ -1152,45 +1137,24 @@ export default function CreateCurrentAffairPage() {
                 {/* Description */}
                 <div>
                   <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                    Description * (Max 60 words, 500 characters)
+                    Description * (Max 60 words)
                   </label>
                   <RichTextEditor
                     value={formData.description}
                     onChange={(value) => {
-                      // Check both word count and character count
+                      // Check word count only
                       const wordCount = getWordCount(value);
-                      const charCount = getCharacterCount(value);
                       
-                      // Limit to 60 words OR 500 characters (whichever is stricter)
-                      if (wordCount > 60 || charCount > 500) {
+                      // Limit to 60 words
+                      if (wordCount > 60) {
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(value, 'text/html');
                         const plainText = doc.body.textContent || doc.body.innerText || '';
                         const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
                         
-                        let truncatedText = plainText;
-                        let truncatedWords = words;
-                        let reason = '';
-                        
-                        // Prioritize word count limit (60 words) as it's more important
-                        if (truncatedWords.length > 60) {
-                          truncatedWords = truncatedWords.slice(0, 60);
-                          truncatedText = truncatedWords.join(' ');
-                          reason = '60 words';
-                        }
-                        // Then check character count
-                        else if (charCount > 500) {
-                          truncatedText = plainText.substring(0, 500);
-                          truncatedWords = truncatedText.trim().split(/\s+/).filter(word => word.length > 0);
-                          // Re-check word count after character truncation
-                          if (truncatedWords.length > 60) {
-                            truncatedWords = truncatedWords.slice(0, 60);
-                            truncatedText = truncatedWords.join(' ');
-                            reason = '60 words';
-                          } else {
-                            reason = '500 characters';
-                          }
-                        }
+                        // Truncate to 60 words
+                        const truncatedWords = words.slice(0, 60);
+                        const truncatedText = truncatedWords.join(' ');
                         
                         // If original had HTML, try to preserve structure by replacing text content
                         let truncatedValue = value;
@@ -1207,34 +1171,27 @@ export default function CreateCurrentAffairPage() {
                           truncatedValue = truncatedText;
                         }
                         
-                        // Double-check the truncated value doesn't exceed limits
+                        // Double-check the truncated value doesn't exceed word limit
                         const finalWordCount = getWordCount(truncatedValue);
-                        const finalCharCount = getCharacterCount(truncatedValue);
-                        
-                        if (finalWordCount > 60 || finalCharCount > 500) {
+                        if (finalWordCount > 60) {
                           // If still over limit, strip all HTML and use plain text
                           truncatedValue = truncatedText;
                         }
                         
                         setFormData({ ...formData, description: truncatedValue });
-                        showToast(`Description limited to ${reason}`, 'info');
+                        showToast('Description limited to 60 words', 'info');
                       } else {
                         setFormData({ ...formData, description: value });
                       }
                     }}
-                    placeholder="Write a brief description (max 60 words, 500 characters) with full formatting options..."
+                    placeholder="Write a brief description (max 60 words) with full formatting options..."
                     minHeight="60px"
                     className="mt-1 description-editor"
                   />
                   <div className="mt-2 flex items-center justify-between">
-                    <div className="flex gap-4">
-                      <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : (descriptionWordCount > 60 || descriptionCharCount > 500) ? 'text-red-600' : 'text-slate-600'}`}>
-                        {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
-                      </p>
-                      <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionCharCount > 500 ? 'text-red-600' : 'text-slate-600'}`}>
-                        {descriptionCharCount} / 500 characters {descriptionCharCount > 500 && `(Exceeds limit)`}
-                      </p>
-                    </div>
+                    <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
+                      {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
+                    </p>
                     {isDescriptionValid && (
                       <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
                     )}
