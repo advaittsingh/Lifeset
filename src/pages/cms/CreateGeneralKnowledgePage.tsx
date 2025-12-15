@@ -213,6 +213,12 @@ export default function CreateGeneralKnowledgePage() {
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => {
+      // Re-validate description word count before sending (matches backend validation)
+      const wordCount = getWordCount(data.description);
+      if (wordCount > 60) {
+        throw new Error(`Description must be 60 words or less (HTML tags are not counted). Current: ${wordCount} words`);
+      }
+      
       const imageUrl = data.imagePreview || data.imageUrl;
       return cmsApi.createGeneralKnowledge({
         title: data.title,
@@ -260,6 +266,12 @@ export default function CreateGeneralKnowledgePage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: typeof formData) => {
+      // Re-validate description word count before sending (matches backend validation)
+      const wordCount = getWordCount(data.description);
+      if (wordCount > 60) {
+        throw new Error(`Description must be 60 words or less (HTML tags are not counted). Current: ${wordCount} words`);
+      }
+      
       const imageUrl = data.imagePreview || data.imageUrl;
       return cmsApi.updateGeneralKnowledge(id!, {
         title: data.title,
@@ -300,28 +312,6 @@ export default function CreateGeneralKnowledgePage() {
     },
     onError: () => showToast('Failed to update article', 'error'),
   });
-
-  const handleSaveDraft = () => {
-    if (!formData.title.trim()) {
-      showToast('Please enter a title', 'error');
-      return;
-    }
-    if (!formData.description.trim()) {
-      showToast('Please enter a description', 'error');
-      return;
-    }
-    if (!isDescriptionValid) {
-      showToast('Description must be 60 words or less', 'error');
-      return;
-    }
-
-    const draftData = { ...formData, isPublished: false };
-    if (isEditMode) {
-      updateMutation.mutate(draftData);
-    } else {
-      createMutation.mutate(draftData);
-    }
-  };
 
   const handlePublish = () => {
     if (!formData.title.trim()) {
@@ -540,23 +530,6 @@ export default function CreateGeneralKnowledgePage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              onClick={handleSaveDraft}
-              disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
-            >
-              {(createMutation.isPending || updateMutation.isPending) ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isEditMode ? 'Save Article' : 'Save Article'}
-                </>
-              )}
-            </Button>
             <Button
               onClick={handlePublish}
               disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}

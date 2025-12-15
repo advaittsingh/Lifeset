@@ -452,32 +452,6 @@ export default function CreateCurrentAffairPage() {
     onError: () => showToast('Failed to update current affair', 'error'),
   });
 
-  const handleSaveDraft = () => {
-    if (!formData.title.trim()) {
-      showToast('Please enter a title', 'error');
-      return;
-    }
-    if (!formData.description.trim()) {
-      showToast('Please enter a description', 'error');
-      return;
-    }
-    if (!isDescriptionValid) {
-      if (descriptionWordCount > 60) {
-        showToast('Description must be 60 words or less', 'error');
-      } else {
-        showToast('Description is required', 'error');
-      }
-      return;
-    }
-
-    const draftData = { ...formData, isPublished: false };
-    if (isEditMode) {
-      updateMutation.mutate(draftData);
-    } else {
-      createMutation.mutate(draftData);
-    }
-  };
-
   const handlePublish = () => {
     if (!formData.title.trim()) {
       showToast('Please enter a title', 'error');
@@ -698,23 +672,6 @@ export default function CreateCurrentAffairPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              onClick={handleSaveDraft}
-              disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
-            >
-              {(createMutation.isPending || updateMutation.isPending) ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isEditMode ? 'Saving...' : 'Saving...'}
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isEditMode ? 'Save Article' : 'Save Article'}
-                </>
-              )}
-            </Button>
             <Button
               onClick={handlePublish}
               disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
