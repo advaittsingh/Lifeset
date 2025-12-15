@@ -68,13 +68,13 @@ export default function CreateGeneralKnowledgePage() {
     articleId: '', // For linking MCQ
   });
 
-  // Fetch categories
+  // Fetch categories (Wall parent categories)
   const { data: categoriesData } = useQuery({
     queryKey: ['wall-categories'],
     queryFn: () => postsApi.getWallCategories(),
   });
 
-  const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
+  const categories = categoriesData || [];
 
   // Fetch MCQ categories
   const { data: mcqCategoriesData } = useQuery({

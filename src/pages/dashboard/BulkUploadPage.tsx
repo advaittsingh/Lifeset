@@ -47,12 +47,12 @@ export default function BulkUploadPage() {
   });
   const awardeds = Array.isArray(awardedsData) ? awardedsData : (awardedsData?.data || []);
 
-  // Wall categories for GK/Current Affairs mapping
+  // Wall categories for GK/Current Affairs mapping (parent categories)
   const { data: wallCategoriesData } = useQuery({
     queryKey: ['wall-categories-for-bulk'],
     queryFn: () => postsApi.getWallCategories(),
   });
-  const wallCategories = Array.isArray(wallCategoriesData) ? wallCategoriesData : (wallCategoriesData?.data || []);
+  const wallCategories = wallCategoriesData || [];
 
   // MCQ categories
   const { data: mcqCategoriesData } = useQuery({
