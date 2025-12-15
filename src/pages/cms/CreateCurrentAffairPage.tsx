@@ -992,7 +992,7 @@ export default function CreateCurrentAffairPage() {
                       }
                     }}
                     placeholder="Write a brief description (max 60 words) with full formatting options..."
-                    minHeight="200px"
+                    minHeight="120px"
                     className="mt-1"
                   />
                   <div className="mt-2 flex items-center justify-between">
@@ -1079,22 +1079,61 @@ export default function CreateCurrentAffairPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="grid grid-cols-2 gap-6">
-              {/* Description Preview */}
+              {/* Post Preview */}
               <div>
-                <h4 className="text-sm font-semibold text-slate-700 mb-3">Description Preview</h4>
+                <h4 className="text-sm font-semibold text-slate-700 mb-3">Post Preview</h4>
                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border-2 border-dashed border-slate-300 min-h-[300px]">
-                  {formData.description ? (
-                    <div 
-                      className="text-sm text-slate-700 article-preview-content bg-white p-4 rounded-lg"
-                      dangerouslySetInnerHTML={{ __html: formData.description }}
-                    />
-                  ) : (
-                    <div className="space-y-2 p-4">
-                      <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
-                      <div className="h-4 bg-slate-200 rounded animate-pulse w-5/6"></div>
-                      <div className="h-4 bg-slate-200 rounded animate-pulse w-4/6"></div>
+                  <div className="bg-white rounded-lg shadow-md overflow-hidden border border-slate-200">
+                    {/* Image Preview */}
+                    {(formData.imagePreview || formData.imageUrl) && (
+                      <div className="w-full h-48 bg-slate-100 overflow-hidden">
+                        <img
+                          src={formData.imagePreview || formData.imageUrl}
+                          alt="Article"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    {/* Title */}
+                    <div className="p-4">
+                      {formData.title ? (
+                        <h3 className="text-xl font-bold text-slate-900 mb-3">{formData.title}</h3>
+                      ) : (
+                        <div className="h-6 bg-slate-200 rounded animate-pulse mb-3"></div>
+                      )}
+                      {/* Description */}
+                      {formData.description ? (
+                        <div 
+                          className="text-sm text-slate-600 article-preview-content line-clamp-4"
+                          style={{ 
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 4,
+                            WebkitBoxOrient: 'vertical'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: formData.description }}
+                        />
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
+                          <div className="h-4 bg-slate-200 rounded animate-pulse w-5/6"></div>
+                          <div className="h-4 bg-slate-200 rounded animate-pulse w-4/6"></div>
+                        </div>
+                      )}
+                      {/* Post Meta */}
+                      <div className="pt-3 mt-3 border-t border-slate-200">
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <Newspaper className="h-3 w-3" />
+                          <span>Current Affairs</span>
+                          <span>•</span>
+                          <span>{new Date().toLocaleDateString()}</span>
+                        </div>
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
