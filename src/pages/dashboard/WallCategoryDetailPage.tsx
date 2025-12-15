@@ -345,7 +345,12 @@ export default function WallCategoryDetailPage() {
   });
 
   const updateChapterMutation = useMutation({
-    mutationFn: (payload: { id: string; updates: Partial<Chapter> }) => {
+    mutationFn: (payload: { id: string; updates: {
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+      order?: number;
+    } }) => {
       return cmsApi.updateChapter(payload.id, payload.updates);
     },
     onSuccess: async (_, variables) => {
@@ -406,7 +411,7 @@ export default function WallCategoryDetailPage() {
     }
     if (!editingChapter) return;
 
-    const updates: Partial<Chapter> = {
+    const updates = {
       name: editChapterFormData.name,
       description: editChapterFormData.description || undefined,
       isActive: editChapterFormData.status === 'active',
