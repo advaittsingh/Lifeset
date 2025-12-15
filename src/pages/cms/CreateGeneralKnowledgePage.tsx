@@ -461,6 +461,13 @@ export default function CreateGeneralKnowledgePage() {
   return (
     <>
       <style>{`
+        .description-editor .ql-editor {
+          padding: 0.5rem !important;
+          min-height: 60px !important;
+        }
+        .description-editor .ql-container {
+          min-height: 60px !important;
+        }
         .article-preview-content p {
           margin: 0.5rem 0;
         }
@@ -1021,8 +1028,8 @@ export default function CreateGeneralKnowledgePage() {
                       }
                     }}
                     placeholder="Write a brief description (max 60 words) with full formatting options..."
-                    minHeight="40px"
-                    className="mt-1"
+                    minHeight="60px"
+                    className="mt-1 description-editor"
                   />
                   <div className="mt-2 flex items-center justify-between">
                     <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
