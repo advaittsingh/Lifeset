@@ -9,7 +9,7 @@ import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { ArrowLeft, Save, Eye, BookOpen, Loader2, Image as ImageIcon, HelpCircle, CheckCircle2, XCircle, Plus, X, Calendar, MapPin } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { cmsApi } from '../../services/api/cms';
+import { cmsApi, Chapter } from '../../services/api/cms';
 import { postsApi } from '../../services/api/posts';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
@@ -40,6 +40,7 @@ export default function CreateGeneralKnowledgePage() {
     category: '',
     subCategory: '',
     subCategoryId: '',
+    chapterId: '',
     section: '',
     country: '',
     categoryId: '',
@@ -86,6 +87,16 @@ export default function CreateGeneralKnowledgePage() {
 
   const subCategories = subCategoriesData || [];
 
+  // Fetch chapters for the selected sub-category
+  const { data: chaptersData } = useQuery<Chapter[]>({
+    queryKey: ['chapters', formData.subCategoryId],
+    queryFn: () =>
+      formData.subCategoryId ? cmsApi.getChaptersBySubCategory(formData.subCategoryId) : [],
+    enabled: !!formData.subCategoryId,
+  });
+
+  const chapters = chaptersData || [];
+
   // Fetch MCQ categories
   const { data: mcqCategoriesData } = useQuery({
     queryKey: ['mcq-categories'],
@@ -117,6 +128,7 @@ export default function CreateGeneralKnowledgePage() {
         category: metadata.category || '',
         subCategory: metadata.subCategory || '',
         subCategoryId: metadata.subCategoryId || '',
+        chapterId: metadata.chapterId || '',
         section: metadata.section || '',
         country: metadata.country || '',
         categoryId: existingItem.categoryId || '',
@@ -214,6 +226,7 @@ export default function CreateGeneralKnowledgePage() {
           category: data.category,
           subCategory: data.subCategory,
           subCategoryId: data.subCategoryId,
+          chapterId: data.chapterId || undefined,
           section: data.section,
           country: data.country,
           postType: data.postType,
@@ -260,6 +273,7 @@ export default function CreateGeneralKnowledgePage() {
           category: data.category,
           subCategory: data.subCategory,
           subCategoryId: data.subCategoryId,
+          chapterId: data.chapterId || undefined,
           section: data.section,
           country: data.country,
           postType: data.postType,
@@ -600,6 +614,27 @@ export default function CreateGeneralKnowledgePage() {
                   </select>
                   <p className="text-xs text-slate-500 mt-1">
                     Sub-categories are managed in Dashboard → Wall Categories
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Chapter</label>
+                  <select
+                    value={formData.chapterId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, chapterId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    disabled={!formData.subCategoryId || chapters.length === 0}
+                  >
+                    <option value="">Select Chapter</option>
+                    {chapters.map((chapter: Chapter) => (
+                      <option key={chapter.id} value={chapter.id}>
+                        {chapter.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select a chapter if needed
                   </p>
                 </div>
                 <div>

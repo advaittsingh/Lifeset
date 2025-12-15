@@ -28,6 +28,18 @@ export interface PersonalityQuestion {
   isActive: boolean;
 }
 
+export interface Chapter {
+  id: string;
+  name: string;
+  description: string | null;
+  subCategoryId: string;
+  isActive: boolean;
+  order: number;
+  metadata?: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const cmsApi = {
   // Current Affairs
   getCurrentAffairs: async (params?: any) => {
@@ -149,6 +161,45 @@ export const cmsApi = {
   moderateCommunityPost: async (id: string, action: 'approve' | 'reject' | 'delete') => {
     const response = await apiClient.post(`/admin/cms/community/${id}/moderate`, { action });
     return response.data.data || response.data;
+  },
+
+  // Chapters
+  getChapters: async (params?: { subCategoryId?: string; isActive?: boolean }): Promise<Chapter[]> => {
+    const response = await apiClient.get('/admin/cms/chapters', { params });
+    const result = response.data?.data ?? response.data;
+    return Array.isArray(result) ? (result as Chapter[]) : (result?.data ?? []);
+  },
+  getChapterById: async (id: string): Promise<Chapter> => {
+    const response = await apiClient.get(`/admin/cms/chapters/${id}`);
+    return response.data.data || response.data;
+  },
+  getChaptersBySubCategory: async (subCategoryId: string): Promise<Chapter[]> => {
+    const response = await apiClient.get(`/admin/cms/sub-categories/${subCategoryId}/chapters`);
+    const result = response.data?.data ?? response.data;
+    return Array.isArray(result) ? (result as Chapter[]) : (result?.data ?? []);
+  },
+  createChapter: async (data: {
+    name: string;
+    description?: string;
+    subCategoryId: string;
+    isActive?: boolean;
+    order?: number;
+  }): Promise<Chapter> => {
+    const response = await apiClient.post('/admin/cms/chapters', data);
+    return response.data.data || response.data;
+  },
+  updateChapter: async (id: string, data: {
+    name?: string;
+    description?: string;
+    isActive?: boolean;
+    order?: number;
+  }): Promise<Chapter> => {
+    const response = await apiClient.put(`/admin/cms/chapters/${id}`, data);
+    return response.data.data || response.data;
+  },
+  deleteChapter: async (id: string) => {
+    const response = await apiClient.delete(`/admin/cms/chapters/${id}`);
+    return response.data;
   },
 };
 
