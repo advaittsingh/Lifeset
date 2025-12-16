@@ -881,93 +881,73 @@ export default function CreateCurrentAffairPage() {
                       className="mt-1"
                     />
                   </div>
-                  <div>
+                  <div className="col-span-3">
                     <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                      Notification Date (Month & Day)
+                      Notification Dates (Month & Day)
                     </label>
                     <div className="space-y-2">
-                      {formData.eventDates.slice(0, 1).map((date, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Input
-                            type="text"
-                            value={date}
-                            onChange={(e) => {
-                              const newDates = [...formData.eventDates];
-                              newDates[index] = e.target.value;
-                              setFormData({ ...formData, eventDates: newDates });
-                            }}
-                            className="flex-1"
-                            placeholder="MM-DD"
-                          />
-                          {formData.eventDates.length > 1 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const newDates = formData.eventDates.filter((_, i) => i !== index);
-                                setFormData({ ...formData, eventDates: newDates });
-                              }}
-                            >
-                              Remove
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                      {formData.eventDates.length === 0 && (
+                      {formData.eventDates.length === 0 ? (
                         <Button
+                          type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setFormData({ ...formData, eventDates: [...formData.eventDates, ''] });
+                            setFormData({ ...formData, eventDates: [''] });
                           }}
+                          className="w-full"
                         >
-                          Add Date
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Notification Date
                         </Button>
+                      ) : (
+                        <>
+                          {formData.eventDates.map((date, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <Input
+                                type="text"
+                                value={date}
+                                onChange={(e) => {
+                                  const newDates = [...formData.eventDates];
+                                  newDates[index] = e.target.value;
+                                  setFormData({ ...formData, eventDates: newDates });
+                                }}
+                                className="flex-1"
+                                placeholder="MM-DD"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const newDates = formData.eventDates.filter((_, i) => i !== index);
+                                  setFormData({ ...formData, eventDates: newDates });
+                                }}
+                                disabled={formData.eventDates.length === 1}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setFormData({ ...formData, eventDates: [...formData.eventDates, ''] });
+                            }}
+                            className="w-full"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Another Notification Date
+                          </Button>
+                        </>
                       )}
                     </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      Notifications will be sent automatically on these dates each year (use MM-DD format).
+                    </p>
                   </div>
                 </div>
-                {formData.eventDates.length > 1 && (
-                  <div className="space-y-2">
-                    {formData.eventDates.slice(1).map((date, index) => (
-                      <div key={index + 1} className="flex items-center gap-2">
-                        <Input
-                          type="text"
-                          value={date}
-                          onChange={(e) => {
-                            const newDates = [...formData.eventDates];
-                            newDates[index + 1] = e.target.value;
-                            setFormData({ ...formData, eventDates: newDates });
-                          }}
-                          className="flex-1"
-                          placeholder="MM-DD"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const newDates = formData.eventDates.filter((_, i) => i !== index + 1);
-                            setFormData({ ...formData, eventDates: newDates });
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setFormData({ ...formData, eventDates: [...formData.eventDates, ''] });
-                      }}
-                    >
-                      Add More Dates
-                    </Button>
-                  </div>
-                )}
-                <p className="text-xs text-slate-500 mt-1">
-                  Notifications will be sent automatically on these dates each year (use MM-DD format).
-                </p>
 
                 {/* Location Section - 3 Rows Layout */}
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
