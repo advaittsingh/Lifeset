@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { ArrowLeft, Plus, Loader2, Tag, Trash2, Pencil, BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, Tag, Trash2, Pencil, BookOpen, ChevronDown, ChevronRight, Newspaper, Eye } from 'lucide-react';
 import { postsApi, WallCategory } from '../../services/api/posts';
 import { cmsApi, Chapter } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
@@ -80,6 +80,41 @@ export default function WallCategoryDetailPage() {
   });
 
   const subCategories: WallCategory[] = subCategoriesData || [];
+
+  // Component to fetch and display article count for a sub-category
+  const SubCategoryArticleCount: React.FC<{ subCategoryId: string }> = ({ subCategoryId }) => {
+    const { data: caData } = useQuery({
+      queryKey: ['current-affairs-count', subCategoryId],
+      queryFn: async () => {
+        try {
+          const result = await cmsApi.getCurrentAffairs({ subCategoryId });
+          return Array.isArray(result) ? result : (result?.data || []);
+        } catch {
+          return [];
+        }
+      },
+      enabled: !!subCategoryId,
+    });
+
+    const { data: gkData } = useQuery({
+      queryKey: ['general-knowledge-count', subCategoryId],
+      queryFn: async () => {
+        try {
+          const result = await cmsApi.getGeneralKnowledge({ subCategoryId });
+          return Array.isArray(result) ? result : (result?.data || []);
+        } catch {
+          return [];
+        }
+      },
+      enabled: !!subCategoryId,
+    });
+
+    const caArticles = Array.isArray(caData) ? caData : [];
+    const gkArticles = Array.isArray(gkData) ? gkData : [];
+    const totalArticles = caArticles.length + gkArticles.length;
+
+    return <span>{totalArticles} articles</span>;
+  };
 
   // Component to display chapters for a sub-category
   const SubCategoryChapters: React.FC<{ subCategoryId: string; onEdit: (chapter: Chapter) => void; onDelete: (chapter: Chapter) => void; onCreate: () => void }> = ({ subCategoryId, onEdit, onDelete, onCreate }) => {
@@ -603,11 +638,21 @@ export default function WallCategoryDetailPage() {
                         </p>
                         <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
                           <span>{subCategory.postCount || 0} posts</span>
+                          <SubCategoryArticleCount subCategoryId={subCategory.id} />
                           <span>Created: {new Date(subCategory.createdAt).toLocaleString()}</span>
                           <span>Updated: {new Date(subCategory.updatedAt).toLocaleString()}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/dashboard/wall-categories/sub-category/${subCategory.id}`)}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          title="View Articles"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

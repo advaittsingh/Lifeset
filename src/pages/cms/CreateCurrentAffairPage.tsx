@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 export default function CreateCurrentAffairPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
   const isEditMode = !!id;
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -168,6 +169,22 @@ export default function CreateCurrentAffairPage() {
     },
     enabled: isEditMode && !!id,
   });
+
+  // Pre-fill from URL params if creating new article
+  useEffect(() => {
+    if (!isEditMode) {
+      const subCategoryIdParam = searchParams.get('subCategoryId');
+      const categoryIdParam = searchParams.get('categoryId');
+      
+      if (subCategoryIdParam || categoryIdParam) {
+        setFormData(prev => ({
+          ...prev,
+          subCategoryId: subCategoryIdParam || prev.subCategoryId,
+          categoryId: categoryIdParam || prev.categoryId,
+        }));
+      }
+    }
+  }, [searchParams, isEditMode]);
 
   // Update form when existing item loads
   useEffect(() => {
