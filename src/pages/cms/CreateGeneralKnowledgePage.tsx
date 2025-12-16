@@ -241,8 +241,7 @@ export default function CreateGeneralKnowledgePage() {
       };
       
       // Only include fields that have values
-      if (data.category) metadata.category = data.category;
-      if (data.subCategory) metadata.subCategory = data.subCategory;
+      // Note: category and subCategory are legacy text fields, use subCategoryId instead
       if (data.subCategoryId) metadata.subCategoryId = data.subCategoryId;
       if (data.chapterId) metadata.chapterId = data.chapterId;
       if (data.section) metadata.section = data.section;
@@ -270,8 +269,7 @@ export default function CreateGeneralKnowledgePage() {
         description: data.description,
         categoryId: data.categoryId || undefined,
         images: imageUrl ? [imageUrl] : [],
-        isActive: data.isActive,
-        // Note: General Knowledge backend doesn't accept isPublished at top-level
+        // Note: General Knowledge backend doesn't accept isPublished or isActive at top-level
         language: data.language || 'ENGLISH', // Backend now accepts language at top-level
         metadata: cleanValue(metadata),
       };
@@ -419,8 +417,7 @@ export default function CreateGeneralKnowledgePage() {
       };
       
       // Only include fields that have values
-      if (data.category) metadata.category = data.category;
-      if (data.subCategory) metadata.subCategory = data.subCategory;
+      // Note: category and subCategory are legacy text fields, use subCategoryId instead
       if (data.subCategoryId) metadata.subCategoryId = data.subCategoryId;
       if (data.chapterId) metadata.chapterId = data.chapterId;
       if (data.section) metadata.section = data.section;
@@ -448,8 +445,7 @@ export default function CreateGeneralKnowledgePage() {
         description: data.description,
         categoryId: data.categoryId || undefined,
         images: imageUrl ? [imageUrl] : [],
-        isActive: data.isActive,
-        // Note: General Knowledge backend doesn't accept isPublished at top-level
+        // Note: General Knowledge backend doesn't accept isPublished or isActive at top-level
         language: data.language || 'ENGLISH', // Backend now accepts language at top-level
         metadata: cleanValue(metadata),
       };
