@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { Plus, Edit, Trash2, Loader2, AlertCircle, Newspaper } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, AlertCircle, Newspaper, HelpCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -127,6 +127,23 @@ export default function CurrentAffairsPage() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Navigate to MCQ create with pre-filled data
+                                const params = new URLSearchParams({
+                                  categoryId: item.categoryId || '',
+                                  subCategoryId: item.metadata?.subCategoryId || '',
+                                  chapterId: item.metadata?.chapterId || '',
+                                  articleId: item.id,
+                                });
+                                navigate(`/cms/mcq/create?${params.toString()}`);
+                              }}
+                              title="Create MCQ from this article"
+                            >
+                              <HelpCircle className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"

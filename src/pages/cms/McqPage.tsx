@@ -7,8 +7,9 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { Plus, Edit, Trash2, Loader2, AlertCircle, HelpCircle, BookOpen } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, AlertCircle, HelpCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
+import { postsApi } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function McqPage() {
@@ -16,9 +17,7 @@ export default function McqPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [categoryFormData, setCategoryFormData] = useState({ name: '', description: '' });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
@@ -27,13 +26,14 @@ export default function McqPage() {
     queryFn: () => cmsApi.getMcqQuestions({ search: searchTerm || undefined, categoryId: categoryFilter || undefined }),
   });
 
+  // Fetch Wall Categories (parent categories) for filtering
   const { data: categoriesData } = useQuery({
-    queryKey: ['mcq-categories'],
-    queryFn: () => cmsApi.getMcqCategories(),
+    queryKey: ['wall-categories'],
+    queryFn: () => postsApi.getWallCategories(),
   });
 
   const questions = Array.isArray(questionsData) ? questionsData : (questionsData?.data || []);
-  const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
+  const categories = categoriesData || [];
 
 
   const deleteMutation = useMutation({
@@ -46,17 +46,6 @@ export default function McqPage() {
     onError: () => showToast('Failed to delete MCQ question', 'error'),
   });
 
-  const createCategoryMutation = useMutation({
-    mutationFn: (data: any) => cmsApi.createMcqCategory(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mcq-categories'] });
-      showToast('Category created successfully', 'success');
-      setIsCategoryDialogOpen(false);
-      setCategoryFormData({ name: '', description: '' });
-    },
-    onError: () => showToast('Failed to create category', 'error'),
-  });
-
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -66,10 +55,6 @@ export default function McqPage() {
             <p className="text-slate-600 mt-1">Manage MCQ questions and categories</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(true)}>
-              <BookOpen className="mr-2 h-4 w-4" />
-              Add Category
-            </Button>
             <Button
               className="bg-gradient-to-r from-blue-600 to-indigo-600"
               onClick={() => navigate('/cms/mcq/create')}
@@ -188,51 +173,6 @@ export default function McqPage() {
             )}
           </CardContent>
         </Card>
-
-
-        {/* Category Dialog */}
-        <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Category</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Name</label>
-                <Input
-                  value={categoryFormData.name}
-                  onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
-                <Textarea
-                  value={categoryFormData.description}
-                  onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={() => createCategoryMutation.mutate(categoryFormData)}
-                disabled={createCategoryMutation.isPending || !categoryFormData.name}
-              >
-                {createCategoryMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Delete Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

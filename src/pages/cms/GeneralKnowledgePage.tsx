@@ -96,8 +96,7 @@ export default function GeneralKnowledgePage() {
                                 const params = new URLSearchParams({
                                   categoryId: item.categoryId || '',
                                   subCategoryId: item.metadata?.subCategoryId || '',
-                                  section: item.metadata?.section || '',
-                                  country: item.metadata?.country || '',
+                                  chapterId: item.metadata?.chapterId || '',
                                   articleId: item.id,
                                 });
                                 navigate(`/cms/mcq/create?${params.toString()}`);

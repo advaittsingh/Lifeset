@@ -8,7 +8,8 @@ import { Textarea } from '../../components/ui/textarea';
 import { ArrowLeft, Save, Eye, HelpCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { cmsApi } from '../../services/api/cms';
+import { cmsApi, Chapter } from '../../services/api/cms';
+import { postsApi } from '../../services/api/posts';
 
 export default function CreateMcqPage() {
   const navigate = useNavigate();
@@ -23,17 +24,39 @@ export default function CreateMcqPage() {
     options: ['', '', '', ''],
     correctAnswer: 0,
     categoryId: '',
+    subCategoryId: '',
+    chapterId: '',
     explanation: '',
     articleId: '', // Link to article
   });
 
-  // Fetch categories
+  // Fetch categories (Wall parent categories)
   const { data: categoriesData } = useQuery({
-    queryKey: ['mcq-categories'],
-    queryFn: () => cmsApi.getMcqCategories(),
+    queryKey: ['wall-categories'],
+    queryFn: () => postsApi.getWallCategories(),
   });
 
-  const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
+  const categories = categoriesData || [];
+
+  // Fetch sub-categories for the selected category
+  const { data: subCategoriesData } = useQuery({
+    queryKey: ['wall-subcategories', formData.categoryId],
+    queryFn: () =>
+      formData.categoryId ? postsApi.getWallSubCategories(formData.categoryId) : [],
+    enabled: !!formData.categoryId,
+  });
+
+  const subCategories = subCategoriesData || [];
+
+  // Fetch chapters for the selected sub-category
+  const { data: chaptersData } = useQuery<Chapter[]>({
+    queryKey: ['chapters', formData.subCategoryId],
+    queryFn: () =>
+      formData.subCategoryId ? cmsApi.getChaptersBySubCategory(formData.subCategoryId) : [],
+    enabled: !!formData.subCategoryId,
+  });
+
+  const chapters = chaptersData || [];
 
   // Pre-fill category from URL params (from General Knowledge/Current Affairs page)
   useEffect(() => {
@@ -44,17 +67,20 @@ export default function CreateMcqPage() {
       const sectionParam = searchParams.get('section');
       const countryParam = searchParams.get('country');
       const categoryIdParam = searchParams.get('categoryId');
+      const subCategoryIdParam = searchParams.get('subCategoryId');
+      const chapterIdParam = searchParams.get('chapterId');
 
       if (categoryIdParam) {
         setFormData(prev => ({ ...prev, categoryId: categoryIdParam }));
-      } else if (categoryParam) {
-        // Try to find matching MCQ category
-        const matchingCategory = categories.find((cat: any) => 
-          cat.name?.toLowerCase().includes(categoryParam.toLowerCase())
-        );
-        if (matchingCategory) {
-          setFormData(prev => ({ ...prev, categoryId: matchingCategory.id }));
-        }
+      }
+      if (subCategoryIdParam) {
+        setFormData(prev => ({ ...prev, subCategoryId: subCategoryIdParam }));
+      }
+      if (chapterIdParam) {
+        setFormData(prev => ({ ...prev, chapterId: chapterIdParam }));
+      }
+      if (articleIdParam) {
+        setFormData(prev => ({ ...prev, articleId: articleIdParam }));
       }
 
       // Pre-fill question with context if available
@@ -89,13 +115,16 @@ export default function CreateMcqPage() {
   // Update form when existing question loads
   useEffect(() => {
     if (existingQuestion && isEditMode) {
+      const metadata = existingQuestion.metadata || {};
       setFormData({
         question: existingQuestion.question || '',
         options: existingQuestion.options?.map((opt: any) => opt.text || opt) || ['', '', '', ''],
         correctAnswer: existingQuestion.correctAnswer || 0,
         categoryId: existingQuestion.categoryId || '',
+        subCategoryId: metadata.subCategoryId || '',
+        chapterId: metadata.chapterId || '',
         explanation: existingQuestion.explanation || '',
-        articleId: existingQuestion.metadata?.articleId || existingQuestion.articleId || '',
+        articleId: metadata.articleId || existingQuestion.articleId || '',
       });
     }
   }, [existingQuestion, isEditMode]);
@@ -113,10 +142,8 @@ export default function CreateMcqPage() {
       articleId: data.articleId || undefined, // Link to article
       metadata: {
         articleId: data.articleId,
-        category: searchParams.get('category') || undefined,
-        subCategory: searchParams.get('subCategory') || undefined,
-        section: searchParams.get('section') || undefined,
-        country: searchParams.get('country') || undefined,
+        subCategoryId: data.subCategoryId || undefined,
+        chapterId: data.chapterId || undefined,
       },
     }),
     onSuccess: () => {
@@ -137,6 +164,11 @@ export default function CreateMcqPage() {
       correctAnswer: data.correctAnswer,
       categoryId: data.categoryId || undefined,
       explanation: data.explanation || undefined,
+      metadata: {
+        articleId: data.articleId || undefined,
+        subCategoryId: data.subCategoryId || undefined,
+        chapterId: data.chapterId || undefined,
+      },
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
@@ -242,21 +274,69 @@ export default function CreateMcqPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
-              {/* Category */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Category</label>
-                <select
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((cat: any) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+              {/* Category and Basic Information */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Category */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Category</label>
+                  <select
+                    value={formData.categoryId}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      categoryId: e.target.value,
+                      subCategoryId: '', // Reset sub-category when category changes
+                      chapterId: '', // Reset chapter when category changes
+                    })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map((cat: any) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sub Category */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Sub Category</label>
+                  <select
+                    value={formData.subCategoryId}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      subCategoryId: e.target.value,
+                      chapterId: '', // Reset chapter when sub-category changes
+                    })}
+                    disabled={!formData.categoryId}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select a sub-category</option>
+                    {subCategories.map((subCat: any) => (
+                      <option key={subCat.id} value={subCat.id}>
+                        {subCat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Chapter */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Chapter</label>
+                  <select
+                    value={formData.chapterId}
+                    onChange={(e) => setFormData({ ...formData, chapterId: e.target.value })}
+                    disabled={!formData.subCategoryId}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select a chapter</option>
+                    {chapters.map((chapter: Chapter) => (
+                      <option key={chapter.id} value={chapter.id}>
+                        {chapter.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Question */}
