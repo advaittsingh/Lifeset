@@ -50,10 +50,16 @@ export default function CurrentAffairsPage() {
     mutationFn: (id: string) => cmsApi.deleteCurrentAffair(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['current-affairs'] });
+      queryClient.invalidateQueries({ queryKey: ['current-affairs', searchTerm] });
       showToast('Current affair deleted successfully', 'success');
       setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
     },
-    onError: () => showToast('Failed to delete current affair', 'error'),
+    onError: () => {
+      showToast('Failed to delete current affair', 'error');
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
+    },
   });
 
   if (error) {

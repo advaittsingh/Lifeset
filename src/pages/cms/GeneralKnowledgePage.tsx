@@ -30,7 +30,15 @@ export default function GeneralKnowledgePage() {
     mutationFn: (id: string) => cmsApi.deleteGeneralKnowledge(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['general-knowledge'] });
+      queryClient.invalidateQueries({ queryKey: ['general-knowledge', searchTerm] });
       showToast('Article deleted successfully', 'success');
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
+    },
+    onError: () => {
+      showToast('Failed to delete article', 'error');
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
     },
   });
 
@@ -117,7 +125,10 @@ export default function GeneralKnowledgePage() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => deleteMutation.mutate(item.id)}
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setIsDeleteDialogOpen(true);
+                              }}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -132,6 +143,36 @@ export default function GeneralKnowledgePage() {
           </CardContent>
         </Card>
 
+        {/* Delete Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Article</DialogTitle>
+            </DialogHeader>
+            <p className="text-slate-600">
+              Are you sure you want to delete "{selectedItem?.title}"? This action cannot be undone.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteMutation.mutate(selectedItem?.id)}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

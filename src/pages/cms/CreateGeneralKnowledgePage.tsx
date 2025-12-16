@@ -93,6 +93,21 @@ export default function CreateGeneralKnowledgePage() {
 
   const subCategories = subCategoriesData || [];
 
+  // Initialize form data from URL params if provided (for creating from sub-category page)
+  useEffect(() => {
+    if (!isEditMode) {
+      const categoryIdParam = searchParams.get('categoryId');
+      const subCategoryIdParam = searchParams.get('subCategoryId');
+      if (categoryIdParam || subCategoryIdParam) {
+        setFormData(prev => ({
+          ...prev,
+          categoryId: categoryIdParam || prev.categoryId,
+          subCategoryId: subCategoryIdParam || prev.subCategoryId,
+        }));
+      }
+    }
+  }, [searchParams, isEditMode]);
+
   // Fetch chapters for the selected sub-category
   const { data: chaptersData } = useQuery<Chapter[]>({
     queryKey: ['chapters', formData.subCategoryId],
@@ -134,22 +149,6 @@ export default function CreateGeneralKnowledgePage() {
     },
     enabled: isEditMode && !!id,
   });
-
-  // Pre-fill from URL params if creating new article
-  useEffect(() => {
-    if (!isEditMode) {
-      const subCategoryIdParam = searchParams.get('subCategoryId');
-      const categoryIdParam = searchParams.get('categoryId');
-      
-      if (subCategoryIdParam || categoryIdParam) {
-        setFormData(prev => ({
-          ...prev,
-          subCategoryId: subCategoryIdParam || prev.subCategoryId,
-          categoryId: categoryIdParam || prev.categoryId,
-        }));
-      }
-    }
-  }, [searchParams, isEditMode]);
 
   // Update form when existing item loads
   useEffect(() => {

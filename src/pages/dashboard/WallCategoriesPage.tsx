@@ -69,12 +69,12 @@ export default function WallCategoriesPage() {
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) =>
       postsApi.createWallCategory({
-        name: data.name,
-        description: data.description || undefined,
-        categoryFor: data.categoryFor || undefined,
-        parentCategoryId: null, // Top-level categories have null parent
-        isActive: data.status === 'active',
-      }),
+      name: data.name,
+      description: data.description || undefined,
+      categoryFor: data.categoryFor || undefined,
+      parentCategoryId: null, // Top-level categories have null parent
+      isActive: data.status === 'active',
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
       queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
@@ -422,16 +422,16 @@ export default function WallCategoriesPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => handleDelete(category, e)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        disabled={deleteMutation.isPending}
-                        title="Delete category"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleDelete(category, e)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={deleteMutation.isPending}
+                      title="Delete category"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                     </div>
                   </div>
                 ))}

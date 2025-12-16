@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { ArrowLeft, Plus, Loader2, Tag, Trash2, Pencil, BookOpen, ChevronDown, ChevronRight, Newspaper, Eye } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, Tag, Trash2, Pencil, BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
 import { postsApi, WallCategory } from '../../services/api/posts';
 import { cmsApi, Chapter } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
@@ -81,40 +81,32 @@ export default function WallCategoryDetailPage() {
 
   const subCategories: WallCategory[] = subCategoriesData || [];
 
-  // Component to fetch and display article count for a sub-category
-  const SubCategoryArticleCount: React.FC<{ subCategoryId: string }> = ({ subCategoryId }) => {
-    const { data: caData } = useQuery({
-      queryKey: ['current-affairs-count', subCategoryId],
-      queryFn: async () => {
-        try {
-          const result = await cmsApi.getCurrentAffairs({ subCategoryId });
-          return Array.isArray(result) ? result : (result?.data || []);
-        } catch {
-          return [];
-        }
-      },
-      enabled: !!subCategoryId,
-    });
+  // Fetch chapter counts for all sub-categories
+  const { data: allChaptersData } = useQuery<Chapter[]>({
+    queryKey: ['all-chapters', id],
+    queryFn: async () => {
+      if (!id || subCategories.length === 0) return [];
+      // Fetch chapters for all sub-categories
+      const chapterPromises = subCategories.map(subCat => 
+        cmsApi.getChaptersBySubCategory(subCat.id)
+      );
+      const allChapters = await Promise.all(chapterPromises);
+      return allChapters.flat();
+    },
+    enabled: !!id && subCategories.length > 0,
+  });
 
-    const { data: gkData } = useQuery({
-      queryKey: ['general-knowledge-count', subCategoryId],
-      queryFn: async () => {
-        try {
-          const result = await cmsApi.getGeneralKnowledge({ subCategoryId });
-          return Array.isArray(result) ? result : (result?.data || []);
-        } catch {
-          return [];
-        }
-      },
-      enabled: !!subCategoryId,
-    });
-
-    const caArticles = Array.isArray(caData) ? caData : [];
-    const gkArticles = Array.isArray(gkData) ? gkData : [];
-    const totalArticles = caArticles.length + gkArticles.length;
-
-    return <span>{totalArticles} articles</span>;
-  };
+  // Create a map of subCategoryId -> chapter count
+  const chapterCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (allChaptersData) {
+      subCategories.forEach(subCat => {
+        const count = allChaptersData.filter(ch => ch.subCategoryId === subCat.id).length;
+        map.set(subCat.id, count);
+      });
+    }
+    return map;
+  }, [allChaptersData, subCategories]);
 
   // Component to display chapters for a sub-category
   const SubCategoryChapters: React.FC<{ subCategoryId: string; onEdit: (chapter: Chapter) => void; onDelete: (chapter: Chapter) => void; onCreate: () => void }> = ({ subCategoryId, onEdit, onDelete, onCreate }) => {
@@ -368,6 +360,7 @@ export default function WallCategoryDetailPage() {
       setChapterFormData({ name: '', description: '', status: 'active', order: '' });
       setSelectedSubCategoryForChapter(null);
       await queryClient.refetchQueries({ queryKey: ['chapters', variables.subCategoryId] });
+      await queryClient.refetchQueries({ queryKey: ['all-chapters', id] });
     },
     onError: (error: any) => {
       const message =
@@ -391,9 +384,11 @@ export default function WallCategoryDetailPage() {
     onSuccess: async (_, variables) => {
       showToast('Chapter updated successfully', 'success');
       setIsEditChapterDialogOpen(false);
+      const subCatId = editingChapter?.subCategoryId;
       setEditingChapter(null);
-      if (editingChapter) {
-        await queryClient.refetchQueries({ queryKey: ['chapters', editingChapter.subCategoryId] });
+      if (subCatId) {
+        await queryClient.refetchQueries({ queryKey: ['chapters', subCatId] });
+        await queryClient.refetchQueries({ queryKey: ['all-chapters', id] });
       }
     },
     onError: (error: any) => {
@@ -410,8 +405,10 @@ export default function WallCategoryDetailPage() {
     mutationFn: (chapterId: string) => cmsApi.deleteChapter(chapterId),
     onSuccess: async (_, chapterId) => {
       showToast('Chapter deleted successfully', 'success');
-      if (editingChapter) {
-        await queryClient.refetchQueries({ queryKey: ['chapters', editingChapter.subCategoryId] });
+      const subCatId = editingChapter?.subCategoryId;
+      if (subCatId) {
+        await queryClient.refetchQueries({ queryKey: ['chapters', subCatId] });
+        await queryClient.refetchQueries({ queryKey: ['all-chapters', id] });
       }
     },
     onError: (error: any) => {
@@ -638,7 +635,7 @@ export default function WallCategoryDetailPage() {
                         </p>
                         <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
                           <span>{subCategory.postCount || 0} posts</span>
-                          <SubCategoryArticleCount subCategoryId={subCategory.id} />
+                          <span>{chapterCountMap.get(subCategory.id) || 0} chapters</span>
                           <span>Created: {new Date(subCategory.createdAt).toLocaleString()}</span>
                           <span>Updated: {new Date(subCategory.updatedAt).toLocaleString()}</span>
                         </div>
@@ -647,11 +644,11 @@ export default function WallCategoryDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/dashboard/wall-categories/sub-category/${subCategory.id}`)}
+                          onClick={() => navigate(`/dashboard/wall-categories/${id}/sub-categories/${subCategory.id}`)}
                           className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          title="View Articles"
+                          title="View articles in this sub-category"
                         >
-                          <Eye className="h-4 w-4" />
+                          <BookOpen className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"

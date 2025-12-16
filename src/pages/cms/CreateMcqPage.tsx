@@ -139,21 +139,21 @@ export default function CreateMcqPage() {
     mutationFn: (data: typeof formData) => {
       const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
       return cmsApi.createMcqQuestion({
-        question: data.question,
-        options: data.options.map((opt, idx) => ({
-          text: opt,
-          isCorrect: idx === data.correctAnswer,
-        })),
-        correctAnswer: data.correctAnswer,
-        categoryId: data.categoryId || undefined,
-        explanation: data.explanation || undefined,
+      question: data.question,
+      options: data.options.map((opt, idx) => ({
+        text: opt,
+        isCorrect: idx === data.correctAnswer,
+      })),
+      correctAnswer: data.correctAnswer,
+      categoryId: data.categoryId || undefined,
+      explanation: data.explanation || undefined,
         explanationImage: explanationImage || undefined,
-        articleId: data.articleId || undefined, // Link to article
-        metadata: {
-          articleId: data.articleId,
+      articleId: data.articleId || undefined, // Link to article
+      metadata: {
+        articleId: data.articleId,
           subCategoryId: data.subCategoryId || undefined,
           chapterId: data.chapterId || undefined,
-        },
+      },
       });
     },
     onSuccess: () => {
@@ -168,14 +168,14 @@ export default function CreateMcqPage() {
     mutationFn: (data: typeof formData) => {
       const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
       return cmsApi.updateMcqQuestion(id!, {
-        question: data.question,
-        options: data.options.map((opt, idx) => ({
-          text: opt,
-          isCorrect: idx === data.correctAnswer,
-        })),
-        correctAnswer: data.correctAnswer,
-        categoryId: data.categoryId || undefined,
-        explanation: data.explanation || undefined,
+      question: data.question,
+      options: data.options.map((opt, idx) => ({
+        text: opt,
+        isCorrect: idx === data.correctAnswer,
+      })),
+      correctAnswer: data.correctAnswer,
+      categoryId: data.categoryId || undefined,
+      explanation: data.explanation || undefined,
         explanationImage: explanationImage || undefined,
         metadata: {
           articleId: data.articleId || undefined,
@@ -324,26 +324,26 @@ export default function CreateMcqPage() {
             <CardContent className="pt-6 space-y-6">
               {/* Category and Basic Information */}
               <div className="grid grid-cols-3 gap-4">
-                {/* Category */}
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Category</label>
-                  <select
-                    value={formData.categoryId}
+              {/* Category */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Category</label>
+                <select
+                  value={formData.categoryId}
                     onChange={(e) => setFormData({ 
                       ...formData, 
                       categoryId: e.target.value,
                       subCategoryId: '', // Reset sub-category when category changes
                       chapterId: '', // Reset chapter when category changes
                     })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Select a category</option>
-                    {categories.map((cat: any) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
                 </div>
 
                 {/* Sub Category */}

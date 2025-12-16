@@ -192,7 +192,7 @@ export default function App() {
           }
         />
         <Route
-          path="/dashboard/wall-categories/sub-category/:id"
+          path="/dashboard/wall-categories/:categoryId/sub-categories/:subCategoryId"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <SubCategoryDetailPage />
