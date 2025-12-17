@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import { ArrowLeft, Save, Eye, Loader2, Image as ImageIcon, Upload } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Loader2, Image as ImageIcon, Upload, Send } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi } from '../../services/api/cms';
@@ -82,12 +82,34 @@ export default function CreateKnowYourselfPage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFormData({ ...formData, imageFile: file, imagePreview: URL.createObjectURL(file) });
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image size should be less than 5MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({
+          ...prev,
+          imageFile: file,
+          imagePreview: reader.result as string,
+          imageUrl: '',
+        }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const removeImage = () => {
-    setFormData({ ...formData, imageFile: null, imagePreview: null, imageUrl: '' });
+    setFormData(prev => ({
+      ...prev,
+      imageFile: null,
+      imagePreview: null,
+      imageUrl: '',
+    }));
   };
 
   const createMutation = useMutation({
@@ -129,14 +151,15 @@ export default function CreateKnowYourselfPage() {
       return;
     }
 
+    const imageUrl = formData.imagePreview || formData.imageUrl;
+    
     const submitData = {
       question: formData.question,
       yesIs: formData.yesIs,
       noIs: formData.noIs,
       options: formData.options,
       order: formData.order,
-      imageUrl: formData.imageUrl,
-      // Add image file handling if needed
+      imageUrl: imageUrl || undefined,
     };
 
     if (isEditMode && id) {
@@ -179,24 +202,45 @@ export default function CreateKnowYourselfPage() {
               </p>
             </div>
           </div>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={createMutation.isPending || updateMutation.isPending}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600"
-          >
-            {(createMutation.isPending || updateMutation.isPending) ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {isEditMode ? 'Updating...' : 'Creating...'}
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Save
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="border-slate-300"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isEditMode ? 'Saving...' : 'Saving...'}
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold shadow-lg"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Publish
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Main Content - Side by Side */}
@@ -242,15 +286,61 @@ export default function CreateKnowYourselfPage() {
                         </svg>
                       </button>
                     </div>
+                    <input
+                      type="file"
+                      id="image-upload-change"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => document.getElementById('image-upload')?.click()}
-                      className="flex-1"
+                      onClick={() => {
+                        const input = document.getElementById('image-upload-change') as HTMLInputElement;
+                        if (input) {
+                          input.value = ''; // Reset so same file can be selected again
+                          input.click();
+                        }
+                      }}
+                      className="w-full"
                     >
                       <ImageIcon className="h-4 w-4 mr-2" />
                       Change Image
                     </Button>
+                    {/* Alternative: Image URL */}
+                    <div className="mt-2 pt-2 border-t border-slate-200">
+                      <details className="group">
+                        <summary className="text-xs font-medium text-slate-600 cursor-pointer hover:text-slate-900">
+                          Or use image URL instead
+                        </summary>
+                        <div className="mt-2">
+                          <Input
+                            id="image-upload-url"
+                            placeholder="https://example.com/image.jpg"
+                            value={formData.imageUrl}
+                            onChange={(e) => {
+                              const url = e.target.value;
+                              if (url) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  imageUrl: url,
+                                  imageFile: null,
+                                  imagePreview: url,
+                                }));
+                              } else {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  imageUrl: '',
+                                }));
+                              }
+                            }}
+                            className="mt-1"
+                            disabled={!!formData.imageFile}
+                          />
+                        </div>
+                      </details>
+                    </div>
                   </div>
                 ) : (
                   <div className="mt-2">
@@ -314,10 +404,14 @@ export default function CreateKnowYourselfPage() {
                 <Textarea
                   value={formData.question}
                   onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                  rows={4}
-                  placeholder="Enter question in Hindi and English (e.g., आप कुछ करने से पहले हमेशा यह सोचते हैं कि आपके कार्यों का दूसरों पर क्या प्रभाव पड़ेगा। / You always consider how your actions might affect other people before doing something.)"
-                  className="mt-1"
+                  rows={6}
+                  placeholder="Enter question in Hindi and English. Use line breaks to separate Hindi and English text.&#10;&#10;Example:&#10;आप कुछ करने से पहले हमेशा यह सोचते हैं कि आपके कार्यों का दूसरों पर क्या प्रभाव पड़ेगा।&#10;&#10;You always consider how your actions might affect other people before doing something."
+                  className="mt-1 whitespace-pre-wrap"
+                  style={{ whiteSpace: 'pre-wrap' }}
                 />
+                <p className="text-xs text-slate-500 mt-2">
+                  Tip: Press Enter to create line breaks between Hindi and English text
+                </p>
               </div>
 
               {/* Order */}
@@ -354,7 +448,10 @@ export default function CreateKnowYourselfPage() {
                   <span>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                 </div>
                 {formData.question && (
-                  <div className="text-base font-medium text-slate-900 p-3 bg-slate-50 rounded-lg">
+                  <div 
+                    className="text-base font-medium text-slate-900 p-3 bg-slate-50 rounded-lg whitespace-pre-wrap"
+                    style={{ whiteSpace: 'pre-wrap' }}
+                  >
                     {formData.question}
                   </div>
                 )}

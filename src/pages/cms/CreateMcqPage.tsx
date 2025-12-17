@@ -146,11 +146,13 @@ export default function CreateMcqPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => {
-      const questionImage = data.questionImagePreview || data.questionImageUrl;
-      const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
+      // Only include images if they have actual values (not empty strings)
+      const questionImage = (data.questionImagePreview || data.questionImageUrl)?.trim();
+      const explanationImage = (data.explanationImagePreview || data.explanationImageUrl)?.trim();
+      
       return cmsApi.createMcqQuestion({
       question: data.question,
-      questionImage: questionImage || undefined,
+      ...(questionImage ? { questionImage } : {}), // Only include if it has a value
       options: data.options.map((opt, idx) => ({
         text: opt,
         isCorrect: idx === data.correctAnswer,
@@ -158,7 +160,7 @@ export default function CreateMcqPage() {
       correctAnswer: data.correctAnswer,
       categoryId: data.categoryId || undefined,
       explanation: data.explanation || undefined,
-        explanationImage: explanationImage || undefined,
+      ...(explanationImage ? { explanationImage } : {}), // Only include if it has a value
       articleId: data.articleId || undefined, // Link to article
       metadata: {
         articleId: data.articleId,
@@ -177,11 +179,13 @@ export default function CreateMcqPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: typeof formData) => {
-      const questionImage = data.questionImagePreview || data.questionImageUrl;
-      const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
+      // Only include images if they have actual values (not empty strings)
+      const questionImage = (data.questionImagePreview || data.questionImageUrl)?.trim();
+      const explanationImage = (data.explanationImagePreview || data.explanationImageUrl)?.trim();
+      
       return cmsApi.updateMcqQuestion(id!, {
       question: data.question,
-      questionImage: questionImage || undefined,
+      ...(questionImage ? { questionImage } : {}), // Only include if it has a value
       options: data.options.map((opt, idx) => ({
         text: opt,
         isCorrect: idx === data.correctAnswer,
@@ -189,7 +193,7 @@ export default function CreateMcqPage() {
       correctAnswer: data.correctAnswer,
       categoryId: data.categoryId || undefined,
       explanation: data.explanation || undefined,
-        explanationImage: explanationImage || undefined,
+      ...(explanationImage ? { explanationImage } : {}), // Only include if it has a value
         metadata: {
         articleId: data.articleId || undefined,
           subCategoryId: data.subCategoryId || undefined,
