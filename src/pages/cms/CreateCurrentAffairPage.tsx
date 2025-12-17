@@ -179,18 +179,38 @@ export default function CreateCurrentAffairPage() {
   const { data: existingItem, isLoading: isLoadingItem } = useQuery({
     queryKey: ['current-affair', id],
     queryFn: async () => {
-      const items = await cmsApi.getCurrentAffairs({});
-      return Array.isArray(items) ? items.find((item: any) => item.id === id) : null;
+      try {
+        const items = await cmsApi.getCurrentAffairs({});
+        console.log('Fetched all items:', items);
+        // Handle different response structures
+        let itemsArray: any[] = [];
+        if (Array.isArray(items)) {
+          itemsArray = items;
+        } else if (items?.data && Array.isArray(items.data)) {
+          itemsArray = items.data;
+        } else if (items?.data?.data && Array.isArray(items.data.data)) {
+          itemsArray = items.data.data;
+        }
+        console.log('Items array:', itemsArray);
+        const found = itemsArray.find((item: any) => item.id === id);
+        console.log('Found item:', found);
+        return found || null;
+      } catch (error) {
+        console.error('Error fetching current affair item:', error);
+        return null;
+      }
     },
     enabled: isEditMode && !!id,
   });
 
   // Update form when existing item loads
+  // This should run after existingItem is loaded and only in edit mode
   useEffect(() => {
-    if (existingItem && isEditMode) {
+    if (existingItem && isEditMode && !isLoadingItem) {
       console.log('Loading existing item for edit:', existingItem);
       const metadata = existingItem.metadata || {};
       console.log('Metadata:', metadata);
+      console.log('Full existing item structure:', JSON.stringify(existingItem, null, 2));
       
       // Language can be at top level or in metadata
       const language = existingItem.language || metadata.language || 'ENGLISH';
@@ -252,7 +272,7 @@ export default function CreateCurrentAffairPage() {
       console.log('Setting form data:', formDataToSet);
       setFormData(formDataToSet);
     }
-  }, [existingItem, isEditMode]);
+  }, [existingItem, isEditMode, isLoadingItem]);
 
   // Handle image file selection
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
