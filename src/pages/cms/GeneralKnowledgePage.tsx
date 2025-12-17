@@ -44,9 +44,27 @@ export default function GeneralKnowledgePage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => cmsApi.deleteGeneralKnowledge(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-knowledge'] });
-      queryClient.invalidateQueries({ queryKey: ['general-knowledge', searchTerm] });
+    onSuccess: async (_, deletedId) => {
+      // Optimistically remove the item from cache
+      queryClient.setQueryData(['general-knowledge', searchTerm], (oldData: any) => {
+        if (!oldData) return oldData;
+        // Handle both array and object with data property
+        if (Array.isArray(oldData)) {
+          return oldData.filter((item: any) => item.id !== deletedId);
+        }
+        if (oldData?.data && Array.isArray(oldData.data)) {
+          return {
+            ...oldData,
+            data: oldData.data.filter((item: any) => item.id !== deletedId),
+          };
+        }
+        return oldData;
+      });
+      
+      // Invalidate and refetch all general-knowledge queries
+      await queryClient.invalidateQueries({ queryKey: ['general-knowledge'] });
+      await queryClient.refetchQueries({ queryKey: ['general-knowledge'] });
+      
       showToast('Article deleted successfully', 'success');
       setIsDeleteDialogOpen(false);
       setSelectedItem(null);
