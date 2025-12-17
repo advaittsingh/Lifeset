@@ -21,6 +21,9 @@ export default function CreateMcqPage() {
 
   const [formData, setFormData] = useState({
     question: '',
+    questionImageFile: null as File | null,
+    questionImagePreview: null as string | null,
+    questionImageUrl: '',
     options: ['', '', '', ''],
     correctAnswer: 0,
     categoryId: '',
@@ -121,6 +124,9 @@ export default function CreateMcqPage() {
       const metadata = existingQuestion.metadata || {};
       setFormData({
         question: existingQuestion.question || '',
+        questionImageFile: null,
+        questionImagePreview: existingQuestion.questionImage || null,
+        questionImageUrl: existingQuestion.questionImage || '',
         options: existingQuestion.options?.map((opt: any) => opt.text || opt) || ['', '', '', ''],
         correctAnswer: existingQuestion.correctAnswer || 0,
         categoryId: existingQuestion.categoryId || '',
@@ -137,9 +143,11 @@ export default function CreateMcqPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => {
+      const questionImage = data.questionImagePreview || data.questionImageUrl;
       const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
       return cmsApi.createMcqQuestion({
       question: data.question,
+      questionImage: questionImage || undefined,
       options: data.options.map((opt, idx) => ({
         text: opt,
         isCorrect: idx === data.correctAnswer,
@@ -166,9 +174,11 @@ export default function CreateMcqPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: typeof formData) => {
+      const questionImage = data.questionImagePreview || data.questionImageUrl;
       const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
       return cmsApi.updateMcqQuestion(id!, {
       question: data.question,
+      questionImage: questionImage || undefined,
       options: data.options.map((opt, idx) => ({
         text: opt,
         isCorrect: idx === data.correctAnswer,
@@ -178,7 +188,7 @@ export default function CreateMcqPage() {
       explanation: data.explanation || undefined,
         explanationImage: explanationImage || undefined,
         metadata: {
-          articleId: data.articleId || undefined,
+        articleId: data.articleId || undefined,
           subCategoryId: data.subCategoryId || undefined,
           chapterId: data.chapterId || undefined,
         },
@@ -218,6 +228,40 @@ export default function CreateMcqPage() {
     const newOptions = [...formData.options];
     newOptions[index] = value;
     setFormData({ ...formData, options: newOptions });
+  };
+
+  // Handle question image upload
+  const handleQuestionImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image size should be less than 5MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({
+          ...prev,
+          questionImageFile: file,
+          questionImagePreview: reader.result as string,
+          questionImageUrl: '',
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeQuestionImage = () => {
+    setFormData(prev => ({
+      ...prev,
+      questionImageFile: null,
+      questionImagePreview: null,
+      questionImageUrl: '',
+    }));
   };
 
   // Handle explanation image upload
@@ -397,6 +441,75 @@ export default function CreateMcqPage() {
                   className="mt-1 min-h-[100px]"
                   rows={4}
                 />
+                
+                {/* Question Image Upload */}
+                <div className="mt-4">
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Question Image (Optional)</label>
+                  {formData.questionImagePreview ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={formData.questionImagePreview}
+                        alt="Question preview"
+                        className="max-w-full h-auto max-h-64 rounded-lg border border-slate-300"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={removeQuestionImage}
+                        className="absolute top-2 right-2"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleQuestionImageUpload}
+                        className="hidden"
+                        id="question-image-upload"
+                      />
+                      <label
+                        htmlFor="question-image-upload"
+                        className="cursor-pointer flex flex-col items-center gap-2"
+                      >
+                        <ImageIcon className="h-8 w-8 text-slate-400" />
+                        <span className="text-sm text-slate-600">
+                          Click to upload an image or drag and drop
+                        </span>
+                        <span className="text-xs text-slate-500">PNG, JPG, GIF up to 5MB</span>
+                      </label>
+                    </div>
+                  )}
+                  {/* Alternative: Image URL */}
+                  <div className="mt-2 pt-2 border-t border-slate-200">
+                    <details className="group">
+                      <summary className="text-xs font-medium text-slate-600 cursor-pointer hover:text-slate-900">
+                        Or use image URL instead
+                      </summary>
+                      <div className="mt-2">
+                        <Input
+                          placeholder="https://example.com/image.jpg"
+                          value={formData.questionImageUrl}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setFormData({ 
+                                ...formData, 
+                                questionImageUrl: e.target.value,
+                                questionImageFile: null,
+                                questionImagePreview: null,
+                              });
+                            }
+                          }}
+                          className="mt-1"
+                          disabled={!!formData.questionImagePreview}
+                        />
+                      </div>
+                    </details>
+                  </div>
+                </div>
               </div>
 
               {/* Options */}
@@ -520,14 +633,25 @@ export default function CreateMcqPage() {
 
                   {/* Question Preview Card */}
                   <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200 p-6 space-y-4">
-                    {formData.question ? (
+                    {formData.question || formData.questionImagePreview ? (
                       <>
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <HelpCircle className="h-5 w-5 text-blue-600" />
                             <span className="text-xs font-semibold text-blue-600 uppercase">Question</span>
                           </div>
-                          <h3 className="text-lg font-bold text-slate-900 mb-4">{formData.question}</h3>
+                          {formData.questionImagePreview && (
+                            <div className="mb-4">
+                              <img
+                                src={formData.questionImagePreview}
+                                alt="Question"
+                                className="w-full h-auto max-h-64 rounded-lg border border-slate-300 object-contain"
+                              />
+                            </div>
+                          )}
+                          {formData.question && (
+                            <h3 className="text-lg font-bold text-slate-900 mb-4">{formData.question}</h3>
+                          )}
                         </div>
 
                         <div className="space-y-2">

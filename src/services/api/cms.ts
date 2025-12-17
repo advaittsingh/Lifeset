@@ -46,6 +46,10 @@ export const cmsApi = {
     const response = await apiClient.get('/admin/cms/current-affairs', { params });
     return response.data.data || response.data;
   },
+  getCurrentAffairById: async (id: string) => {
+    const response = await apiClient.get(`/admin/cms/current-affairs/${id}`);
+    return response.data.data || response.data;
+  },
   createCurrentAffair: async (data: any) => {
     const response = await apiClient.post('/admin/cms/current-affairs', data);
     return response.data.data || response.data;
@@ -62,6 +66,10 @@ export const cmsApi = {
   // General Knowledge
   getGeneralKnowledge: async (params?: any) => {
     const response = await apiClient.get('/admin/cms/general-knowledge', { params });
+    return response.data.data || response.data;
+  },
+  getGeneralKnowledgeById: async (id: string) => {
+    const response = await apiClient.get(`/admin/cms/general-knowledge/${id}`);
     return response.data.data || response.data;
   },
   createGeneralKnowledge: async (data: any) => {

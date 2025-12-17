@@ -181,29 +181,10 @@ export default function CreateCurrentAffairPage() {
     queryFn: async () => {
       if (!id) return null;
       try {
-        console.log('Fetching item with ID:', id);
-        const items = await cmsApi.getCurrentAffairs({});
-        console.log('Fetched all items:', items);
-        // Handle different response structures
-        let itemsArray: any[] = [];
-        if (Array.isArray(items)) {
-          itemsArray = items;
-        } else if (items?.data && Array.isArray(items.data)) {
-          itemsArray = items.data;
-        } else if (items?.data?.data && Array.isArray(items.data.data)) {
-          itemsArray = items.data.data;
-        }
-        console.log('Items array length:', itemsArray.length);
-        console.log('Looking for ID:', id);
-        const found = itemsArray.find((item: any) => {
-          console.log('Comparing:', item.id, 'with', id, 'match:', item.id === id);
-          return item.id === id;
-        });
-        console.log('Found item:', found);
-        if (!found) {
-          console.warn('Item not found! Available IDs:', itemsArray.map((item: any) => item.id));
-        }
-        return found || null;
+        console.log('Fetching current affair item with ID:', id);
+        const item = await cmsApi.getCurrentAffairById(id);
+        console.log('Fetched item:', item);
+        return item || null;
       } catch (error) {
         console.error('Error fetching current affair item:', error);
         return null;
