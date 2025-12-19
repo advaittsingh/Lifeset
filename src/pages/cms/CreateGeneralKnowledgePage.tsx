@@ -164,12 +164,15 @@ export default function CreateGeneralKnowledgePage() {
 
   // Track previous ID to only reset when ID actually changes
   const prevIdRef = useRef<string | undefined>(undefined);
+  // Track if data has been loaded to prevent reset after load and force RichTextEditor remount
+  const [dataLoadedKey, setDataLoadedKey] = useState<string>('initial');
 
   // Reset form when ID changes (switching between edit/create modes or different items)
   useEffect(() => {
     // Only reset if ID actually changed and we're entering edit mode
     if (isEditMode && id && id !== prevIdRef.current) {
       prevIdRef.current = id;
+      setDataLoadedKey('initial'); // Reset the data loaded key
       // Reset form when entering edit mode with a new ID
       setFormData({
         title: '',
@@ -205,13 +208,14 @@ export default function CreateGeneralKnowledgePage() {
     } else if (!isEditMode) {
       // Reset ref when leaving edit mode
       prevIdRef.current = undefined;
+      setDataLoadedKey('initial');
     }
   }, [id, isEditMode]);
   
   // Update form when existing item loads
   // This should run after existingItem is loaded and only in edit mode
   useEffect(() => {
-    if (existingItem && isEditMode && !isLoadingItem && typeof existingItem === 'object') {
+    if (existingItem && isEditMode && !isLoadingItem && typeof existingItem === 'object' && dataLoadedKey === 'initial') {
       console.log('Loading existing item for edit:', existingItem);
       const item = existingItem as any;
       
@@ -298,9 +302,10 @@ export default function CreateGeneralKnowledgePage() {
       
       console.log('Setting form data:', formDataToSet);
       setFormData(formDataToSet);
+      setDataLoadedKey(item.id || 'loaded'); // Mark data as loaded and trigger RichTextEditor remount
       console.log('Form data has been set. Current formData state:', formDataToSet);
     }
-  }, [existingItem, isEditMode, isLoadingItem]);
+  }, [existingItem, isEditMode, isLoadingItem, dataLoadedKey]);
 
   // Calculate word count for description (handles HTML content)
   // Uses DOMParser to safely extract text without executing scripts
@@ -1331,6 +1336,7 @@ export default function CreateGeneralKnowledgePage() {
                     Description * (Max 60 words)
                   </label>
                   <RichTextEditor
+                    key={`description-${dataLoadedKey}`}
                     value={formData.description}
                     onChange={(value) => {
                       // Limit to 60 words
@@ -1389,6 +1395,7 @@ export default function CreateGeneralKnowledgePage() {
                 <div>
                   <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
                   <RichTextEditor
+                    key={`fullArticle-${dataLoadedKey}`}
                     value={formData.fullArticle}
                     onChange={(value) => setFormData({ ...formData, fullArticle: value })}
                     placeholder="Write the complete article content with full formatting options..."
