@@ -46,11 +46,11 @@ export default function CreateKnowYourselfPage() {
     { value: 'J', label: 'Judgment (J)' },
   ];
 
-  // Fetch existing question if editing
+  // Fetch existing question if editing (include inactive to find all questions)
   const { data: existingItem, isLoading: isLoadingItem } = useQuery({
     queryKey: ['personality-question', id],
     queryFn: async () => {
-      const questions = await cmsApi.getPersonalityQuestions();
+      const questions = await cmsApi.getPersonalityQuestions({ includeInactive: true });
       const allQuestions = Array.isArray(questions) ? questions : (questions?.data || []);
       return allQuestions.find((item: any) => item.id === id);
     },

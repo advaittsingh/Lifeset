@@ -112,8 +112,10 @@ export const cmsApi = {
   },
 
   // Personality Quiz
-  getPersonalityQuestions: async () => {
-    const response = await apiClient.get('/admin/cms/personality/questions');
+  getPersonalityQuestions: async (params?: { includeInactive?: boolean }) => {
+    const response = await apiClient.get('/admin/cms/personality/questions', { 
+      params: params?.includeInactive ? { includeInactive: true } : {}
+    });
     return response.data.data || response.data;
   },
   createPersonalityQuestion: async (data: any) => {

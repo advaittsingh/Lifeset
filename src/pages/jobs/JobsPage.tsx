@@ -36,21 +36,21 @@ export default function JobsPage() {
           // Read from top level (new structure) or metadata (backward compatibility)
           const metadata = post.metadata || {};
           return {
-            id: post.id,
-            postId: post.id,
-            jobTitle: post.title,
-            jobDescription: post.description,
+          id: post.id,
+          postId: post.id,
+          jobTitle: post.title,
+          jobDescription: post.description,
             location: post.jobLocation || metadata.location || post.location,
             salaryMin: post.salaryMin || metadata.salaryMin,
             salaryMax: post.salaryMax || metadata.salaryMax,
             experience: post.experience || metadata.experience,
             skills: post.skills || metadata.skills || [],
             applicationDeadline: post.applicationDeadline || metadata.applicationDeadline,
-            views: post.views || 0,
-            applications: post.applications || 0,
-            createdAt: post.createdAt,
-            updatedAt: post.updatedAt,
-            post: post, // Include full post object with all metadata
+          views: post.views || 0,
+          applications: post.applications || 0,
+          createdAt: post.createdAt,
+          updatedAt: post.updatedAt,
+          post: post, // Include full post object with all metadata
             company: post.user || post.companyName || metadata.companyName ? { 
               companyName: post.companyName || metadata.companyName 
             } : null,

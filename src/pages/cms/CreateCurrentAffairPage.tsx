@@ -1091,29 +1091,29 @@ export default function CreateCurrentAffairPage() {
                           {formData.eventDates.map((notification, index) => (
                             <div key={index} className="space-y-2 p-3 border border-slate-200 rounded-lg bg-slate-50">
                               <div className="flex items-center gap-2">
-                                <Input
-                                  type="text"
+                              <Input
+                                type="text"
                                   value={notification.date}
-                                  onChange={(e) => {
-                                    const newDates = [...formData.eventDates];
+                                onChange={(e) => {
+                                  const newDates = [...formData.eventDates];
                                     newDates[index] = { ...newDates[index], date: e.target.value };
-                                    setFormData({ ...formData, eventDates: newDates });
-                                  }}
-                                  className="flex-1"
-                                  placeholder="MM-DD"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const newDates = formData.eventDates.filter((_, i) => i !== index);
-                                    setFormData({ ...formData, eventDates: newDates });
-                                  }}
-                                  disabled={formData.eventDates.length === 1}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
+                                  setFormData({ ...formData, eventDates: newDates });
+                                }}
+                                className="flex-1"
+                                placeholder="MM-DD"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const newDates = formData.eventDates.filter((_, i) => i !== index);
+                                  setFormData({ ...formData, eventDates: newDates });
+                                }}
+                                disabled={formData.eventDates.length === 1}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                               </div>
                               <Input
                                 type="text"

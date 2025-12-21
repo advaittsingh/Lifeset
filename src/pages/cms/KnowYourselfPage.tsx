@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Plus, Edit, Trash2, Loader2, Brain } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, Brain, CheckCircle2, XCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -12,10 +12,11 @@ export default function KnowYourselfPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [includeInactive, setIncludeInactive] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['personality-questions'],
-    queryFn: () => cmsApi.getPersonalityQuestions(),
+    queryKey: ['personality-questions', includeInactive],
+    queryFn: () => cmsApi.getPersonalityQuestions({ includeInactive }),
   });
 
   const questions = Array.isArray(data) ? data : (data?.data || []);
@@ -48,7 +49,20 @@ export default function KnowYourselfPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Personality Quiz Questions</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Personality Quiz Questions</CardTitle>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeInactive}
+                    onChange={(e) => setIncludeInactive(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-600">Show inactive questions</span>
+                </label>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -57,16 +71,32 @@ export default function KnowYourselfPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {questions.map((item: any, idx: number) => (
-                  <Card key={item.id} className="border-0 shadow-lg">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Brain className="h-4 w-4 text-purple-600" />
-                            <span className="text-sm font-medium text-slate-500">Question {item.order || idx + 1}</span>
-                          </div>
-                          <h3 className="font-semibold mb-2">{item.question}</h3>
+                {questions.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    {includeInactive ? 'No questions found (including inactive)' : 'No active questions found'}
+                  </div>
+                ) : (
+                  questions.map((item: any, idx: number) => (
+                    <Card key={item.id} className={`border-0 shadow-lg ${!item.isActive ? 'opacity-75 bg-slate-50' : ''}`}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Brain className="h-4 w-4 text-purple-600" />
+                              <span className="text-sm font-medium text-slate-500">Question {item.order || idx + 1}</span>
+                              {item.isActive ? (
+                                <span className="flex items-center gap-1 text-xs text-emerald-600">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Active
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-xs text-red-600">
+                                  <XCircle className="h-3 w-3" />
+                                  Inactive
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="font-semibold mb-2">{item.question}</h3>
                           <div className="ml-6 space-y-1">
                             {Array.isArray(item.options) && item.options.map((opt: string, optIdx: number) => (
                               <div key={optIdx} className="text-sm text-slate-600">
@@ -94,7 +124,8 @@ export default function KnowYourselfPage() {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  ))
+                )}
               </div>
             )}
           </CardContent>
