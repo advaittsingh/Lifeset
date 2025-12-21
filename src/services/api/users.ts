@@ -50,7 +50,7 @@ export const usersApi = {
   },
 
   delete: async (id: string) => {
-    const response = await apiClient.delete(`/users/${id}`);
+    const response = await apiClient.delete(`/admin/users/${id}`);
     return response.data;
   },
 

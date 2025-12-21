@@ -64,8 +64,24 @@ export default function UsersPage() {
       setIsDialogOpen(false);
       setSelectedUser(null);
     },
-    onError: () => {
-      showToast('Failed to delete user', 'error');
+    onError: (error: any) => {
+      // Handle specific error cases from backend
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error?.message;
+      
+      let errorMessage = 'Failed to delete user';
+      
+      if (status === 400) {
+        errorMessage = message || 'Cannot delete your own account';
+      } else if (status === 404) {
+        errorMessage = 'User not found';
+      } else if (status === 401) {
+        errorMessage = 'Unauthorized. Admin access required.';
+      } else if (message) {
+        errorMessage = message;
+      }
+      
+      showToast(errorMessage, 'error');
       setIsDialogOpen(false);
       setSelectedUser(null);
     },
