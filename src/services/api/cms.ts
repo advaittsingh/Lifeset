@@ -200,6 +200,28 @@ export const cmsApi = {
     const result = response.data?.data ?? response.data;
     return Array.isArray(result) ? (result as Chapter[]) : (result?.data ?? []);
   },
+
+  // Cascading dropdown endpoints for General Knowledge and Current Affairs
+  // Get all top-level categories (where parentCategoryId IS NULL)
+  getCategories: async (articleType: 'general-knowledge' | 'current-affairs' = 'general-knowledge') => {
+    const response = await apiClient.get(`/cms/${articleType}/categories`);
+    const result = response.data?.data ?? response.data;
+    return Array.isArray(result) ? result : (result?.data ?? []);
+  },
+
+  // Get subcategories for a specific category
+  getSubCategories: async (categoryId: string, articleType: 'general-knowledge' | 'current-affairs' = 'general-knowledge') => {
+    const response = await apiClient.get(`/cms/${articleType}/categories/${categoryId}/subcategories`);
+    const result = response.data?.data ?? response.data;
+    return Array.isArray(result) ? result : (result?.data ?? []);
+  },
+
+  // Get chapters (sections) for a specific subcategory
+  getChaptersBySubCategoryNew: async (subCategoryId: string, articleType: 'general-knowledge' | 'current-affairs' = 'general-knowledge') => {
+    const response = await apiClient.get(`/cms/${articleType}/subcategories/${subCategoryId}/sections`);
+    const result = response.data?.data ?? response.data;
+    return Array.isArray(result) ? (result as Chapter[]) : (result?.data ?? []);
+  },
   createChapter: async (data: {
     name: string;
     description?: string;

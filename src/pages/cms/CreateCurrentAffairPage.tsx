@@ -75,19 +75,19 @@ export default function CreateCurrentAffairPage() {
     articleId: '', // For linking MCQ
   });
 
-  // Fetch categories (Wall parent categories)
+  // Fetch categories (top-level categories using new cascading endpoint)
   const { data: categoriesData } = useQuery({
-    queryKey: ['wall-categories'],
-    queryFn: () => postsApi.getWallCategories(),
+    queryKey: ['ca-categories'],
+    queryFn: () => cmsApi.getCategories('current-affairs'),
   });
 
   const categories = categoriesData || [];
 
-  // Fetch sub-categories for the selected category
+  // Fetch sub-categories for the selected category (using new cascading endpoint)
   const { data: subCategoriesData } = useQuery({
-    queryKey: ['wall-subcategories', formData.categoryId],
+    queryKey: ['ca-subcategories', formData.categoryId],
     queryFn: () =>
-      formData.categoryId ? postsApi.getWallSubCategories(formData.categoryId) : [],
+      formData.categoryId ? cmsApi.getSubCategories(formData.categoryId, 'current-affairs') : [],
     enabled: !!formData.categoryId,
   });
 
@@ -108,31 +108,31 @@ export default function CreateCurrentAffairPage() {
     }
   }, [searchParams, isEditMode]);
 
-  // Fetch chapters for the selected sub-category
+  // Fetch chapters (sections) for the selected sub-category (using new cascading endpoint)
   const { data: chaptersData } = useQuery<Chapter[]>({
-    queryKey: ['chapters', formData.subCategoryId],
+    queryKey: ['ca-chapters', formData.subCategoryId],
     queryFn: () =>
-      formData.subCategoryId ? cmsApi.getChaptersBySubCategory(formData.subCategoryId) : [],
+      formData.subCategoryId ? cmsApi.getChaptersBySubCategoryNew(formData.subCategoryId, 'current-affairs') : [],
     enabled: !!formData.subCategoryId,
   });
 
   const chapters = chaptersData || [];
 
-  // Fetch sub-categories for the selected MCQ category (in dialog)
+  // Fetch sub-categories for the selected MCQ category (in dialog) - using new cascading endpoint
   const { data: mcqSubCategoriesData } = useQuery({
-    queryKey: ['wall-subcategories', mcqFormData.categoryId],
+    queryKey: ['ca-mcq-subcategories', mcqFormData.categoryId],
     queryFn: () =>
-      mcqFormData.categoryId ? postsApi.getWallSubCategories(mcqFormData.categoryId) : [],
+      mcqFormData.categoryId ? cmsApi.getSubCategories(mcqFormData.categoryId, 'current-affairs') : [],
     enabled: !!mcqFormData.categoryId,
   });
 
   const mcqSubCategories = mcqSubCategoriesData || [];
 
-  // Fetch chapters for the selected MCQ sub-category (in dialog)
+  // Fetch chapters for the selected MCQ sub-category (in dialog) - using new cascading endpoint
   const { data: mcqChaptersData } = useQuery<Chapter[]>({
-    queryKey: ['chapters', mcqFormData.subCategoryId],
+    queryKey: ['ca-mcq-chapters', mcqFormData.subCategoryId],
     queryFn: () =>
-      mcqFormData.subCategoryId ? cmsApi.getChaptersBySubCategory(mcqFormData.subCategoryId) : [],
+      mcqFormData.subCategoryId ? cmsApi.getChaptersBySubCategoryNew(mcqFormData.subCategoryId, 'current-affairs') : [],
     enabled: !!mcqFormData.subCategoryId,
   });
 

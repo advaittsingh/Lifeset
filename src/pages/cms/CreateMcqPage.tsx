@@ -37,28 +37,30 @@ export default function CreateMcqPage() {
   });
 
   // Fetch categories (Wall parent categories)
+  // Fetch categories (top-level categories using new cascading endpoint)
+  // Using 'general-knowledge' as default - MCQ can link to both CA and GK articles
   const { data: categoriesData } = useQuery({
-    queryKey: ['wall-categories'],
-    queryFn: () => postsApi.getWallCategories(),
+    queryKey: ['mcq-categories'],
+    queryFn: () => cmsApi.getCategories('general-knowledge'),
   });
 
   const categories = categoriesData || [];
 
-  // Fetch sub-categories for the selected category
+  // Fetch sub-categories for the selected category (using new cascading endpoint)
   const { data: subCategoriesData } = useQuery({
-    queryKey: ['wall-subcategories', formData.categoryId],
+    queryKey: ['mcq-subcategories', formData.categoryId],
     queryFn: () =>
-      formData.categoryId ? postsApi.getWallSubCategories(formData.categoryId) : [],
+      formData.categoryId ? cmsApi.getSubCategories(formData.categoryId, 'general-knowledge') : [],
     enabled: !!formData.categoryId,
   });
 
   const subCategories = subCategoriesData || [];
 
-  // Fetch chapters for the selected sub-category
+  // Fetch chapters (sections) for the selected sub-category (using new cascading endpoint)
   const { data: chaptersData } = useQuery<Chapter[]>({
-    queryKey: ['chapters', formData.subCategoryId],
+    queryKey: ['mcq-chapters', formData.subCategoryId],
     queryFn: () =>
-      formData.subCategoryId ? cmsApi.getChaptersBySubCategory(formData.subCategoryId) : [],
+      formData.subCategoryId ? cmsApi.getChaptersBySubCategoryNew(formData.subCategoryId, 'general-knowledge') : [],
     enabled: !!formData.subCategoryId,
   });
 
