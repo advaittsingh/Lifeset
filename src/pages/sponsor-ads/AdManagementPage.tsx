@@ -59,6 +59,24 @@ if (!Array.isArray(HOURS) || HOURS.length === 0) {
   console.error('HOURS array is not properly initialized');
 }
 
+// Helper functions to ensure we always get arrays (safe for rendering)
+const getDaysArray = (): string[] => {
+  if (Array.isArray(DAYS) && DAYS.length > 0) {
+    return [...DAYS] as string[]; // Convert readonly to mutable array
+  }
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+};
+
+const getHoursArray = (showAll: boolean): number[] => {
+  let hours: number[] = [];
+  if (Array.isArray(HOURS) && HOURS.length > 0) {
+    hours = [...HOURS]; // Create a copy
+  } else {
+    hours = Array.from({ length: 24 }, (_, i) => i);
+  }
+  return showAll ? hours : hours.slice(0, 12);
+};
+
 export default function AdManagementPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
@@ -1026,6 +1044,13 @@ export default function AdManagementPage() {
                 </div>
 
                 {/* Active Users & Allocation Table */}
+                {(() => {
+                  const daysArray = getDaysArray();
+                  const hoursArray = getHoursArray(showAllHours);
+                  if (!Array.isArray(daysArray) || !Array.isArray(hoursArray)) {
+                    return <div className="p-4 text-center text-slate-500">Loading data...</div>;
+                  }
+                  return (
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                   <div className="max-h-[600px] overflow-y-auto">
                     <table className="w-full text-xs">
@@ -1033,7 +1058,7 @@ export default function AdManagementPage() {
                         <tr>
                           <th className="px-3 py-3 text-left font-semibold text-slate-700 border-r border-slate-200 sticky left-0 bg-gradient-to-r from-purple-50 to-blue-50 z-20">Day</th>
                           <th className="px-3 py-3 text-center font-semibold text-slate-700 border-r border-slate-200">Total Users</th>
-                          {((showAllHours ? HOURS : HOURS.slice(0, 12)) || []).map(hour => (
+                          {hoursArray.map(hour => (
                             <th key={hour} className="px-2 py-3 text-center font-semibold text-slate-700 border-r border-slate-200 min-w-[80px]">
                               <div className="flex flex-col">
                                 <span>{hour < 12 ? `${hour}:00 AM` : hour === 12 ? '12:00 PM' : `${hour - 12}:00 PM`}</span>
@@ -1043,7 +1068,7 @@ export default function AdManagementPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(DAYS || []).map(day => {
+                        {daysArray.map(day => {
                           // Ensure activeUsersData and dayUsers are always defined
                           const dayUsers = (activeUsersData && activeUsersData[day]) || {};
                           // Ensure dayUsers is an object before calling Object methods
@@ -1065,7 +1090,7 @@ export default function AdManagementPage() {
                                 <div className="font-bold text-blue-700">{totalUsers.toLocaleString()}</div>
                                 <div className="text-[10px] text-blue-600">Peak: {peakCount}</div>
                               </td>
-                              {((showAllHours ? HOURS : HOURS.slice(0, 12)) || []).map(hour => {
+                              {hoursArray.map(hour => {
                                 const userCount = safeDayUsers[hour.toString()] || 0;
                                 const intensity = userCount > 0 ? Math.min((userCount / (peakCount || 1)) * 100, 100) : 0;
                                 const hasHighActivity = userCount > 500;
