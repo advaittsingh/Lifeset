@@ -131,8 +131,15 @@ export default function AdManagementPage() {
     ads: [] as AdPerformance[],
   });
 
-  // Active Users Data
-  const [activeUsersData, setActiveUsersData] = useState<Record<string, Record<string, number>>>({});
+  // Active Users Data - ensure it's always an object
+  const [activeUsersData, setActiveUsersData] = useState<Record<string, Record<string, number>>>(() => {
+    // Initialize with empty objects for all days to prevent undefined access
+    const initial: Record<string, Record<string, number>> = {};
+    DAYS.forEach(day => {
+      initial[day] = {};
+    });
+    return initial;
+  });
   const [showAllHours, setShowAllHours] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
   const [currentStep, setCurrentStep] = useState(1);
@@ -281,16 +288,35 @@ export default function AdManagementPage() {
       // Handle case where response might be wrapped or in unexpected format
       if (Array.isArray(activeUsers)) {
         console.warn('Active users data is an array, expected object format');
-        setActiveUsersData({});
+        // Initialize with empty objects for all days
+        const empty: Record<string, Record<string, number>> = {};
+        DAYS.forEach(day => {
+          empty[day] = {};
+        });
+        setActiveUsersData(empty);
       } else if (typeof activeUsers === 'object' && activeUsers !== null) {
-        setActiveUsersData(activeUsers as Record<string, Record<string, number>>);
+        // Ensure all days have at least an empty object
+        const normalized: Record<string, Record<string, number>> = {};
+        DAYS.forEach(day => {
+          normalized[day] = activeUsers[day] || {};
+        });
+        setActiveUsersData(normalized);
       } else {
         console.warn('Active users data is not in expected format:', typeof activeUsers);
-        setActiveUsersData({});
+        // Initialize with empty objects for all days
+        const empty: Record<string, Record<string, number>> = {};
+        DAYS.forEach(day => {
+          empty[day] = {};
+        });
+        setActiveUsersData(empty);
       }
     } else {
-      // Reset to empty object if no data
-      setActiveUsersData({});
+      // Initialize with empty objects for all days if no data
+      const empty: Record<string, Record<string, number>> = {};
+      DAYS.forEach(day => {
+        empty[day] = {};
+      });
+      setActiveUsersData(empty);
     }
   }, [activeUsers]);
 
@@ -953,10 +979,12 @@ export default function AdManagementPage() {
                       onClick={() => {
                         const updated = { ...dailyAllocations };
                         DAYS.forEach(day => {
-                          const dayUsers = activeUsersData[day] || {};
-                          const maxUsers = Math.max(...Object.values(dayUsers), 1);
+                          const dayUsers = (activeUsersData && activeUsersData[day]) || {};
+                          const safeDayUsers = typeof dayUsers === 'object' && dayUsers !== null ? dayUsers : {};
+                          const dayValues = Object.values(safeDayUsers).filter(v => typeof v === 'number') as number[];
+                          const maxUsers = dayValues.length > 0 ? Math.max(...dayValues, 1) : 1;
                           HOURS.forEach(hour => {
-                            const userCount = dayUsers[hour.toString()] || 0;
+                            const userCount = safeDayUsers[hour.toString()] || 0;
                             const ratio = userCount / maxUsers;
                             const allocation = Math.floor(parseFloat(advertiserSettings.dailyAllocation) * ratio / 24);
                             updated[day][hour.toString()] = allocation;
@@ -993,7 +1021,7 @@ export default function AdManagementPage() {
                         <tr>
                           <th className="px-3 py-3 text-left font-semibold text-slate-700 border-r border-slate-200 sticky left-0 bg-gradient-to-r from-purple-50 to-blue-50 z-20">Day</th>
                           <th className="px-3 py-3 text-center font-semibold text-slate-700 border-r border-slate-200">Total Users</th>
-                          {(showAllHours ? HOURS : HOURS.slice(0, 12)).map(hour => (
+                          {((showAllHours ? HOURS : HOURS.slice(0, 12)) || []).map(hour => (
                             <th key={hour} className="px-2 py-3 text-center font-semibold text-slate-700 border-r border-slate-200 min-w-[80px]">
                               <div className="flex flex-col">
                                 <span>{hour < 12 ? `${hour}:00 AM` : hour === 12 ? '12:00 PM' : `${hour - 12}:00 PM`}</span>
@@ -1003,12 +1031,16 @@ export default function AdManagementPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {DAYS.map(day => {
-                          const dayUsers = activeUsersData[day] || {};
-                          const totalUsers = Object.values(dayUsers).reduce((sum, count) => sum + count, 0);
-                          const peakEntry = Object.entries(dayUsers).reduce((max, [hour, count]) => {
+                        {(DAYS || []).map(day => {
+                          // Ensure activeUsersData and dayUsers are always defined
+                          const dayUsers = (activeUsersData && activeUsersData[day]) || {};
+                          // Ensure dayUsers is an object before calling Object methods
+                          const safeDayUsers = typeof dayUsers === 'object' && dayUsers !== null ? dayUsers : {};
+                          const totalUsers = Object.values(safeDayUsers).reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
+                          const peakEntry = Object.entries(safeDayUsers).reduce((max, [hour, count]) => {
                             const maxCount = typeof max[1] === 'number' ? max[1] : 0;
-                            return count > maxCount ? [hour, count] : max;
+                            const currentCount = typeof count === 'number' ? count : 0;
+                            return currentCount > maxCount ? [hour, currentCount] : max;
                           }, ['0', 0] as [string, number]);
                           const peakCount = peakEntry[1];
 
@@ -1021,8 +1053,8 @@ export default function AdManagementPage() {
                                 <div className="font-bold text-blue-700">{totalUsers.toLocaleString()}</div>
                                 <div className="text-[10px] text-blue-600">Peak: {peakCount}</div>
                               </td>
-                              {(showAllHours ? HOURS : HOURS.slice(0, 12)).map(hour => {
-                                const userCount = dayUsers[hour.toString()] || 0;
+                              {((showAllHours ? HOURS : HOURS.slice(0, 12)) || []).map(hour => {
+                                const userCount = safeDayUsers[hour.toString()] || 0;
                                 const intensity = userCount > 0 ? Math.min((userCount / (peakCount || 1)) * 100, 100) : 0;
                                 const hasHighActivity = userCount > 500;
 
@@ -1043,7 +1075,7 @@ export default function AdManagementPage() {
                                       </div>
                                       <Input
                                         type="number"
-                                        value={dailyAllocations[day][hour.toString()]}
+                                        value={dailyAllocations[day]?.[hour.toString()] ?? 0}
                                         onChange={(e) => updateHourlyAllocation(day, hour, parseFloat(e.target.value) || 0)}
                                         className={`w-16 h-7 text-xs text-center p-1 ${hasHighActivity ? 'border-blue-300 bg-blue-50 font-semibold' : ''}`}
                                         min="0"
