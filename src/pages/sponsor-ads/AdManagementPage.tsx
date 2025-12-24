@@ -277,7 +277,20 @@ export default function AdManagementPage() {
 
   useEffect(() => {
     if (activeUsers) {
-      setActiveUsersData(activeUsers);
+      // Ensure activeUsers is an object, not an array
+      // Handle case where response might be wrapped or in unexpected format
+      if (Array.isArray(activeUsers)) {
+        console.warn('Active users data is an array, expected object format');
+        setActiveUsersData({});
+      } else if (typeof activeUsers === 'object' && activeUsers !== null) {
+        setActiveUsersData(activeUsers as Record<string, Record<string, number>>);
+      } else {
+        console.warn('Active users data is not in expected format:', typeof activeUsers);
+        setActiveUsersData({});
+      }
+    } else {
+      // Reset to empty object if no data
+      setActiveUsersData({});
     }
   }, [activeUsers]);
 

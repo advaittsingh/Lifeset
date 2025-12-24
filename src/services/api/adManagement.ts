@@ -127,11 +127,25 @@ export const adManagementApi = {
   },
 
   // Get active users by hour for each day
-  getActiveUsersByHour: async () => {
+  getActiveUsersByHour: async (): Promise<Record<string, Record<string, number>>> => {
     const response = await apiClient.get('/admin/ad-campaigns/active-users');
     // Handle wrapped response format: { data: { "Mon": { "0": 100, ... }, ... } }
-    // or direct format: { "Mon": { "0": 100, ... }, ... }
-    return response.data?.data || response.data;
+    // The backend returns: { data: { "Mon": { "0": 100, "1": 120, ... }, ... } }
+    const result = response.data;
+    
+    // If result has a 'data' property, use it (wrapped by TransformInterceptor)
+    if (result && typeof result === 'object' && 'data' in result && result.data) {
+      return result.data as Record<string, Record<string, number>>;
+    }
+    
+    // Otherwise, return result directly (should be the object format)
+    // Ensure it's an object, not an array
+    if (Array.isArray(result)) {
+      console.warn('Expected object format but received array');
+      return {};
+    }
+    
+    return (result as Record<string, Record<string, number>>) || {};
   },
 };
 
