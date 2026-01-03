@@ -399,11 +399,11 @@ export default function WallCategoriesPage() {
                             For: {category.categoryFor || category.metadata?.categoryFor}
                           </p>
                         )}
-                        <div className="flex items-center gap-4 mt-1">
-                          <p className="text-xs text-slate-500">{category.postCount || 0} posts</p>
-                          {category.subCategoryCount !== undefined && (
-                            <p className="text-xs text-slate-500">{category.subCategoryCount || 0} sub-categories</p>
-                          )}
+                        <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
+                          <span>{category.postCount || 0} posts</span>
+                          <span>{category.subCategoryCount || 0} sub-categories</span>
+                          <span>Created: {new Date(category.createdAt).toLocaleString()}</span>
+                          <span>Updated: {new Date(category.updatedAt).toLocaleString()}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-blue-600 font-medium">
