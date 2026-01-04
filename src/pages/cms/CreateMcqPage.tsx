@@ -35,6 +35,7 @@ export default function CreateMcqPage() {
     explanationImagePreview: null as string | null,
     explanationImageUrl: '',
     articleId: '', // Link to article
+    language: 'ENGLISH', // Language: ENGLISH or HINDI
   });
 
   // Fetch categories (Wall parent categories)
@@ -190,6 +191,7 @@ export default function CreateMcqPage() {
         explanationImagePreview: existingQuestion.explanationImage || null,
         explanationImageUrl: existingQuestion.explanationImage || '',
         articleId: existingQuestion.articleId || metadata.articleId || '',
+        language: existingQuestion.language || 'ENGLISH',
       });
     }
   }, [existingQuestion, isEditMode]);
@@ -215,6 +217,7 @@ export default function CreateMcqPage() {
         articleId: data.articleId || undefined, // Link to article
         subCategoryId: data.subCategoryId || undefined, // At top level, not in metadata
         chapterId: data.chapterId || undefined, // At top level, not in metadata
+        language: data.language || 'ENGLISH',
       };
       
       // Remove undefined values
@@ -569,6 +572,20 @@ export default function CreateMcqPage() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Language */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Language *</label>
+                <select
+                  value={formData.language || 'ENGLISH'}
+                  onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-md text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="ENGLISH">English</option>
+                  <option value="HINDI">Hindi (हिंदी)</option>
+                </select>
+                <p className="text-xs text-slate-600 mt-2 font-medium">Select the language of the question content</p>
               </div>
 
               {/* Question */}
